@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>KM projekt ESP 32 s3 pico</title>
+</head>
+
+<body>
+    <h2 style="text-align:center;"> KM projekt praktyki 2026</h2>
+    <div style="margin-left: 30px;">
+        <h3>Ręczne sterowanie:</h3>
+        <input type="radio" id="surge" name="movement" value="surge">
+        <label style="font-size: larger;" for="surge">Surge</label><br>
+        <input type="radio" id="sway" name="movement" value="sway">
+        <label style="font-size: larger;" for="sway">Sway</label><br>
+        <input type="radio" id="heading" name="movement" value="heading">
+        <label style="font-size: larger;" for="heading">Heading</label><br>
+        <input type="radio" id="pr" name="movement" value="pr">
+        <label  style="font-size: larger;" for="pr">Pitch / Roll</label>
+
+        <h3>Home:</h3>
+        <button style="display: none;">Bazuj</button>
+        <label for="plik" style="
+            background: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;">
+            Bazuj
+        </label>
+
+        <h3>Aktualizacja:</h3>
+        <input type="file" id="plik" style="display: none;">
+        <label for="plik" style="
+            background: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;">
+            Wybierz plik
+        </label>
+    </div>
+
+
+</body>
+
+</html>
