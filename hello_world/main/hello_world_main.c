@@ -66,8 +66,7 @@ void wifi_init_softap(void)
         sizeof(WIFI_SSID),
         "%s v%s",
         WIFI_SSID_NAME,
-        FIRMWARE_VERSION
-    );
+        FIRMWARE_VERSION);
 
     ESP_ERROR_CHECK(esp_netif_init());
 
@@ -90,13 +89,17 @@ void wifi_init_softap(void)
 
     wifi_config_t wifi_config = {
         .ap = {
-            .ssid = WIFI_SSID,
-            .ssid_len = strlen(WIFI_SSID),
             .channel = WIFI_CHANNEL,
             .password = WIFI_PASS,
             .max_connection = MAX_STA_CONN,
             .authmode = WIFI_AUTH_WPA_WPA2_PSK},
     };
+
+    strcpy(
+        (char *)wifi_config.ap.ssid,
+        WIFI_SSID);
+
+    wifi_config.ap.ssid_len = strlen(WIFI_SSID);
 
     if (strlen(WIFI_PASS) == 0)
     {
