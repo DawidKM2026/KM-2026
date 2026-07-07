@@ -25,8 +25,8 @@
 #include "esp_partition.h"
 
 //--------------------------------- Access Point ----------------------------------------
-
-#define WIFI_SSID "KM Projekt v1.0.0"
+#define WIFI_SSID_NAME "KM Projekt"
+#define FIRMWARE_VERSION "1.0.0"
 #define WIFI_PASS "KM123456"
 #define WIFI_CHANNEL 1
 #define MAX_STA_CONN 4
@@ -59,6 +59,16 @@ static void wifi_event_handler(
 // Konfiguracja Access Point'a
 void wifi_init_softap(void)
 {
+    char WIFI_SSID[32];
+
+    snprintf(
+        WIFI_SSID,
+        sizeof(WIFI_SSID),
+        "%s v%s",
+        WIFI_SSID_NAME,
+        FIRMWARE_VERSION
+    );
+
     ESP_ERROR_CHECK(esp_netif_init());
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
