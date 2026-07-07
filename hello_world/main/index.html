@@ -22,7 +22,7 @@
         <label style="font-size: xx-large;" for="pr">Pitch / Roll</label>
 
         <h1>Home:</h1>
-        <button style="display: none;"id="bazuj">Bazuj</button>
+        <button style="display: none;" id="bazuj">Bazuj</button>
         <label for="bazuj" style="
             background: #007bff;
             color: white;
@@ -35,9 +35,8 @@
         </label>
 
         <h1>Aktualizacja:</h1>
-        <form method='POST' action='/update' enctype='multipart/form-data'>
-            <input type="file" id="plik" style="display: none;">
-            <label for="plik" style="
+        <input type="file" id="plik" style="display: none;">
+        <label for="plik" style="
                 background: #007bff;
                 color: white;
                 padding: 10px 15px;
@@ -45,10 +44,9 @@
                 cursor: pointer;
                 display: inline-block;
                 font-size: x-large;">
-                Wybierz plik
-            </label>
-            <input type="submit" id="submitButton" style="display: none;">
-            <label for="submitButton" style="
+            Wybierz plik
+        </label>
+        <button onclick="uploadFirmware()" style="
                 background: #007bff;
                 color: white;
                 padding: 10px 15px;
@@ -56,9 +54,24 @@
                 cursor: pointer;
                 display: inline-block;
                 font-size: x-large;">
-                Prześlij
-            </label>
-        </form>
+            Prześlij
+        </button>
+        <script>
+
+            function uploadFirmware() {
+                let file = document.getElementById("plik").files[0];
+
+                fetch("/update", {
+                    method: "POST",
+                    body: file
+                })
+                    .then(response => response.text())
+                    .then(text => {
+                        alert(text);
+                    });
+            }
+
+        </script>
     </div>
 
 
