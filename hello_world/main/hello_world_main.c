@@ -28,8 +28,6 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 
-
-
 static const char *TAG_WEB = "WEB";
 static const char *TAG_WIFI = "WIFI_STA";
 static const char *TAG_ESPNOW = "ESPNOW";
@@ -41,8 +39,6 @@ static EventGroupHandle_t wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 
 static esp_netif_t *sta_netif = NULL;
-
-
 
 static esp_err_t ota_post_handler(httpd_req_t *req);
 //------------------------------------ Strona Internetowa ---------------------------------------------------
@@ -193,10 +189,6 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
 
 //------------------------------------ Koniec Obsługi Update'ów ---------------------------------------------------
 
-
-//------------------------------------- ESP-NOW Global Config ----------------------------------------------
-
-
 //------------------------------------- Łączenie do AP -----------------------------------------
 static void wifi_sta_event_handler(
     void *arg,
@@ -276,12 +268,37 @@ static void wifi_init_sta(void)
 
     ESP_LOGI(TAG_WIFI, "WiFi connected");
 }
-//----------------------------------------------------------- Koniec łączenia do AP
-typedef struct
+//----------------------------------------------------------- Koniec łączenia do AP ----------------------------------
+
+//------------------------------------- ESP-NOW Global Config ----------------------------------------------
+
+/* typedef struct
 {
     uint32_t counter;
-} message_t;
+} message_t; */
 
+// Koordynaty
+int32_t target_x;
+int32_t target_y;
+
+int32_t current_x = 5;
+int32_t current_y = 8;
+
+typedef enum
+{
+    CMD_SET_POSITION = 1,
+    CMD_GET_POSITION = 2,
+    CMD_POSITION_RESPONSE = 3,
+    CMD_ACK_POSITION = 4
+} command_t;
+
+typedef struct
+{
+    uint32_t id;
+    uint8_t cmd;
+    int32_t x;
+    int32_t y;
+} message_t;
 
 //------------------------------------ ESP-NOW Sender ------------------------------------------------
 static const char *TAG_SENDER = "SENDER";
@@ -330,7 +347,48 @@ static void recv_cb(
     message_t msg;
     memcpy(&msg, data, sizeof(msg));
 
-    ESP_LOGI(TAG_RECEIVER, "Counter: %lu", msg.counter);
+    switch (msg.cmd)
+    {
+    case CMD_SET_POSITION:
+    {
+
+        target_x = msg.x;
+        target_y = msg.y;
+
+        ESP_LOGI(TAG_RECEIVER,
+                 "SET_POSITION id=%ld X=%ld Y=%ld",
+                 msg.id,
+                 msg.x,
+                 msg.y);
+
+        message_t response =
+            {
+                .id = msg.id,
+                .cmd = CMD_ACK_POSITION,
+            };
+
+        esp_now_send(info->src_addr,
+                     (uint8_t *)&response,
+                     sizeof(response));
+
+        break;
+    }
+    case CMD_GET_POSITION:
+    {
+        message_t response =
+            {
+                .id = msg.id,
+                .cmd = CMD_POSITION_RESPONSE,
+                .x = current_x,
+                .y = current_y};
+
+        esp_now_send(info->src_addr,
+                     (uint8_t *)&response,
+                     sizeof(response));
+
+        break;
+    }
+    }
 }
 
 //------------------------------------ Koniec ESP-NOW Receiver ------------------------------------------------
@@ -338,7 +396,6 @@ static void recv_cb(
 void app_main(void)
 {
     esp_err_t ret = nvs_flash_init();
-
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
         ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
@@ -348,7 +405,7 @@ void app_main(void)
 
     ESP_ERROR_CHECK(ret);
 
-    //Sprawdzanie aktywnej partycji
+    // Sprawdzanie aktywnej partycji
     const esp_partition_t *running = esp_ota_get_running_partition();
     printf("Running partition: %s\n", running->label);
 
@@ -357,7 +414,6 @@ void app_main(void)
     uint8_t mac[6];
     ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
 
-    
     ESP_LOGI(TAG_WIFI,
              "STA MAC: %02X:%02X:%02X:%02X:%02X:%02X",
              mac[0],
@@ -387,29 +443,10 @@ void app_main(void)
     peer.encrypt = false;
 
     ESP_ERROR_CHECK(esp_now_add_peer(&peer));
-
     ESP_LOGI(TAG_ESPNOW, "ESP-NOW ready");
-
-    uint32_t counter = 0;
 
     while (1)
     {
-        message_t msg = {
-            .counter = counter++
-        };
-
-        esp_err_t send_result = esp_now_send(
-            receiver_mac,
-            (uint8_t *)&msg,
-            sizeof(msg));
-
-        if (send_result != ESP_OK)
-        {
-            ESP_LOGE(TAG_SENDER,
-                     "esp_now_send failed: %s",
-                     esp_err_to_name(send_result));
-        }
-
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
