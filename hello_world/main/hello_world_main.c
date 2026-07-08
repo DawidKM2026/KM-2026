@@ -26,6 +26,7 @@
 #include "esp_partition.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "master_slave_comm.h"
 
 //--------------------------------- Access Point ----------------------------------------
 #define WIFI_SSID_NAME "KM Projekt"
@@ -126,12 +127,10 @@ void wifi_init_softap(void)
 //------------------------------------ Koniec Access Point ---------------------------------------------------
 
 //------------------------------------- ESP-NOW Global Config ----------------------------------------------
-typedef struct
-{
-    uint32_t counter;
-} message_t;
 
-//------------------------------------ ESP-NOW Sender ------------------------------------------------
+static uint32_t msg_id = 0;
+
+//------------------------------------ ESP-NOW Master ------------------------------------------------
 static const char *TAG_SENDER = "SENDER";
 
 static uint8_t receiver_mac[] = {
@@ -158,12 +157,31 @@ static void send_cb(
              tx_info->des_addr[5],
              status == ESP_NOW_SEND_SUCCESS ? "OK" : "FAIL");
 }
-//------------------------------------ Koniec ESP-NOW Sender ------------------------------------------------
 
-//------------------------------------ ESP-NOW Receiver ------------------------------------------------
+// Wyślij pozycję zadaną
+void send_position(int32_t x, int32_t y)
+{
+    message_t msg =
+        {
+            .id = ++msg_id,
+            .cmd = CMD_SET_POSITION,
+            .x = x,
+            .y = y};
+
+    esp_now_send(receiver_mac,
+                 (uint8_t *)&msg,
+                 sizeof(msg));
+
+    ESP_LOGI("MASTER",
+             "SET_POSITION id=%" PRIu32 " X=%" PRId32 " Y=%" PRId32,
+             msg.id,
+             x,
+             y);
+}
 
 static const char *TAG_RECEIVER = "RECEIVER";
 
+// Wyświetl aktualną pozcyję
 static void recv_cb(
     const esp_now_recv_info_t *info,
     const uint8_t *data,
@@ -178,10 +196,53 @@ static void recv_cb(
     message_t msg;
     memcpy(&msg, data, sizeof(msg));
 
-    ESP_LOGI(TAG_RECEIVER, "Counter: %lu", msg.counter);
+    switch (msg.cmd)
+    {
+    case CMD_ACK_POSITION:
+    {
+        ESP_LOGI(TAG_RECEIVER,
+                 "ACK_POSITION id=%" PRIu32,
+                 msg.id);
+        break;
+    }
+
+    case CMD_POSITION_RESPONSE:
+    {
+        ESP_LOGI(TAG_RECEIVER,
+                 "POSITION_RESPONSE id=%" PRIu32
+                 " X=%ld Y=%ld",
+                 msg.id,
+                 msg.x,
+                 msg.y);
+
+        break;
+    }
+
+    default:
+        ESP_LOGW(TAG_RECEIVER,
+                 "Unknown cmd=%u",
+                 msg.cmd);
+        break;
+    }
 }
 
-//------------------------------------ Koniec ESP-NOW Receiver ------------------------------------------------
+// Zarządaj aktualnej pozcyji
+void get_position()
+{
+    message_t msg =
+        {
+            .id = ++msg_id,
+            .cmd = CMD_GET_POSITION};
+
+    esp_now_send(receiver_mac,
+                 (uint8_t *)&msg,
+                 sizeof(msg));
+
+    ESP_LOGI("MASTER",
+             "GET_POSITION id=%" PRIu32,
+             msg.id);
+}
+//------------------------------------ Koniec ESP-NOW Master ------------------------------------------------
 
 void app_main(void)
 {
@@ -235,34 +296,20 @@ void app_main(void)
            ESP_NOW_ETH_ALEN);
 
     peer.channel = WIFI_CHANNEL;
-    peer.ifidx=WIFI_IF_STA;
+    peer.ifidx = WIFI_IF_STA;
     peer.encrypt = false;
 
     ESP_ERROR_CHECK(
         esp_now_add_peer(&peer));
+    ESP_LOGI(TAG_SENDER,
+             "Peer added");
 
     uint32_t counter = 0;
 
+    send_position(100, 200);
     while (1)
     {
-        message_t msg = {
-            .counter = counter++};
-
-        
-esp_err_t send_result = esp_now_send(
-        receiver_mac,
-        (uint8_t *)&msg,
-        sizeof(msg));
-
-    if (send_result != ESP_OK)
-    {
-        ESP_LOGE(TAG_SENDER,
-                 "esp_now_send failed: %s",
-                 esp_err_to_name(send_result));
-    }
-
-        //----------------------------------- Koniec ESP-NOW Sender ------------------------------------
-
         vTaskDelay(pdMS_TO_TICKS(1000));
+        get_position();
     }
 }
