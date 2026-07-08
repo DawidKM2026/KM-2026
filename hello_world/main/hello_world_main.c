@@ -135,8 +135,8 @@ typedef struct
 static const char *TAG_SENDER = "SENDER";
 
 static uint8_t receiver_mac[] = {
-    0xD0, 0xCF, 0x13,
-    0x41, 0x10, 0xDC};
+    0x24, 0x58, 0x7C,
+    0xE1, 0xF7, 0xB8};
 
 static void send_cb(
     const esp_now_send_info_t *tx_info,
