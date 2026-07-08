@@ -20,9 +20,12 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "esp_now.h"
 #include "esp_ota_ops.h"
 #include "esp_http_server.h"
 #include "esp_partition.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 //--------------------------------- Access Point ----------------------------------------
 #define WIFI_SSID_NAME "KM Projekt"
@@ -31,7 +34,7 @@
 #define WIFI_CHANNEL 1
 #define MAX_STA_CONN 4
 
-static const char *TAG = "wifi_ap";
+static const char *TAG_WIFI = "wifi_ap";
 
 // Informacje o wifi do debug'owania
 static void wifi_event_handler(
@@ -45,14 +48,14 @@ static void wifi_event_handler(
         wifi_event_ap_staconnected_t *event =
             (wifi_event_ap_staconnected_t *)event_data;
 
-        ESP_LOGI(TAG, "Device connected, AID=%d", event->aid);
+        ESP_LOGI(TAG_WIFI, "Device connected, AID=%d", event->aid);
     }
     else if (event_id == WIFI_EVENT_AP_STADISCONNECTED)
     {
         wifi_event_ap_stadisconnected_t *event =
             (wifi_event_ap_stadisconnected_t *)event_data;
 
-        ESP_LOGI(TAG, "Device disconnected, AID=%d", event->aid);
+        ESP_LOGI(TAG_WIFI, "Device disconnected, AID=%d", event->aid);
     }
 }
 
@@ -73,6 +76,7 @@ void wifi_init_softap(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     esp_netif_create_default_wifi_ap();
+    esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
@@ -106,169 +110,78 @@ void wifi_init_softap(void)
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     }
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
     wifi_mode_t mode;
     ESP_ERROR_CHECK(esp_wifi_get_mode(&mode));
-    ESP_LOGI(TAG, "WiFi mode=%d", mode);
+    ESP_LOGI(TAG_WIFI, "WiFi mode=%d", mode);
 
-    ESP_LOGI(TAG, "Access Point started");
-    ESP_LOGI(TAG, "SSID: %s", WIFI_SSID);
-    ESP_LOGI(TAG, "Password: %s", WIFI_PASS);
-    ESP_LOGI(TAG, "Channel: %d", WIFI_CHANNEL);
+    ESP_LOGI(TAG_WIFI, "Access Point started");
+    ESP_LOGI(TAG_WIFI, "SSID: %s", WIFI_SSID);
+    ESP_LOGI(TAG_WIFI, "Password: %s", WIFI_PASS);
+    ESP_LOGI(TAG_WIFI, "Channel: %d", WIFI_CHANNEL);
 }
 
 //------------------------------------ Koniec Access Point ---------------------------------------------------
 
-static esp_err_t ota_post_handler(httpd_req_t *req);
-//------------------------------------ Strona Internetowa ---------------------------------------------------
-
-extern const char index_html_start[] asm("_binary_index_html_start");
-extern const char index_html_end[] asm("_binary_index_html_end");
-
-static esp_err_t root_get_handler(httpd_req_t *req)
+//------------------------------------- ESP-NOW Global Config ----------------------------------------------
+typedef struct
 {
-    const size_t html_size = index_html_end - index_html_start;
+    uint32_t counter;
+} message_t;
 
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, index_html_start, html_size);
+//------------------------------------ ESP-NOW Sender ------------------------------------------------
+static const char *TAG_SENDER = "SENDER";
 
-    return ESP_OK;
+static uint8_t receiver_mac[] = {
+    0xD0, 0xCF, 0x13,
+    0x41, 0x10, 0xDC};
+
+static void send_cb(
+    const esp_now_send_info_t *tx_info,
+    esp_now_send_status_t status)
+{
+    if (tx_info == NULL)
+    {
+        ESP_LOGE(TAG_SENDER, "Send callback error: tx_info is NULL");
+        return;
+    }
+
+    ESP_LOGI(TAG_SENDER,
+             "Send to %02X:%02X:%02X:%02X:%02X:%02X: %s",
+             tx_info->des_addr[0],
+             tx_info->des_addr[1],
+             tx_info->des_addr[2],
+             tx_info->des_addr[3],
+             tx_info->des_addr[4],
+             tx_info->des_addr[5],
+             status == ESP_NOW_SEND_SUCCESS ? "OK" : "FAIL");
+}
+//------------------------------------ Koniec ESP-NOW Sender ------------------------------------------------
+
+//------------------------------------ ESP-NOW Receiver ------------------------------------------------
+
+static const char *TAG_RECEIVER = "RECEIVER";
+
+static void recv_cb(
+    const esp_now_recv_info_t *info,
+    const uint8_t *data,
+    int len)
+{
+    if (len != sizeof(message_t))
+    {
+        ESP_LOGW(TAG_RECEIVER, "Unexpected packet size");
+        return;
+    }
+
+    message_t msg;
+    memcpy(&msg, data, sizeof(msg));
+
+    ESP_LOGI(TAG_RECEIVER, "Counter: %lu", msg.counter);
 }
 
-static httpd_handle_t start_webserver(void)
-{
-    httpd_handle_t server = NULL;
-
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-
-    // Zwracanie strony
-    static const httpd_uri_t root_uri = {
-        .uri = "/",
-        .method = HTTP_GET,
-        .handler = root_get_handler,
-        .user_ctx = NULL};
-
-    // Odbiór pliku firmware.bin
-    static const httpd_uri_t update_uri = {
-        .uri = "/update",
-        .method = HTTP_POST,
-        .handler = ota_post_handler,
-        .user_ctx = NULL};
-
-    ESP_LOGI(TAG, "Starting HTTP server");
-
-    if (httpd_start(&server, &config) == ESP_OK)
-    {
-        ESP_ERROR_CHECK(httpd_register_uri_handler(server, &root_uri));
-        ESP_ERROR_CHECK(httpd_register_uri_handler(server, &update_uri));
-        ESP_LOGI(TAG, "HTTP server started");
-        return server;
-    }
-
-    ESP_LOGE(TAG, "Failed to start HTTP server");
-    return NULL;
-}
-
-//------------------------------------ Koniec Strony Internetowej ---------------------------------------------------
-
-//------------------------------------  Obsługa update'ów ze stronki ---------------------------------------------------
-
-static esp_err_t ota_post_handler(httpd_req_t *req)
-{
-    // Feedback
-    esp_err_t ret;
-
-    // Szukanie partycji do update'u
-    const esp_partition_t *update_partition =
-        esp_ota_get_next_update_partition(NULL);
-
-    if (update_partition == NULL)
-    {
-        ESP_LOGE(TAG, "No OTA partition found");
-        return ESP_FAIL;
-    }
-
-    // Id aktualizacji
-    esp_ota_handle_t ota_handle;
-
-    // Nadpisanie nwoego firmware'a
-    ret = esp_ota_begin(
-        update_partition,
-        OTA_SIZE_UNKNOWN,
-        &ota_handle);
-
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "OTA begin failed");
-        return ESP_FAIL;
-    }
-
-    // Temp memory
-    char buffer[1024];
-    int remaining = req->content_len;
-
-    // Paczkowe pobeiranie i zapisywanie danych
-    while (remaining > 0)
-    {
-
-        // Pobieranie danych ze stronki po 1KB
-        int received = httpd_req_recv(
-            req,
-            buffer,
-            sizeof(buffer));
-
-        if (received <= 0)
-        {
-            esp_ota_end(ota_handle);
-            return ESP_FAIL;
-        }
-
-        // Zapis do flash
-        ret = esp_ota_write(
-            ota_handle,
-            buffer,
-            received);
-
-        if (ret != ESP_OK)
-        {
-            esp_ota_end(ota_handle);
-            return ESP_FAIL;
-        }
-        remaining -= received;
-    }
-
-    ret = esp_ota_end(ota_handle);
-
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "OTA end failed");
-        return ESP_FAIL;
-    }
-
-    // Ustawienie nowej default'owej partycji
-    ret = esp_ota_set_boot_partition(
-        update_partition);
-
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Set boot partition failed");
-        return ESP_FAIL;
-    }
-
-    httpd_resp_sendstr(
-        req,
-        "OTA OK, restarting...");
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-    esp_restart();
-
-    return ESP_OK;
-}
-
-//------------------------------------ Koniec Obsługi Update'ów ---------------------------------------------------
+//------------------------------------ Koniec ESP-NOW Receiver ------------------------------------------------
 
 void app_main(void)
 {
@@ -287,22 +200,69 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     wifi_init_softap();
+    uint8_t mac[6];
 
-    start_webserver();
+    ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
 
-    ESP_LOGI(TAG, "Open browser: http://192.168.4.1");
+    ESP_LOGI(TAG_WIFI,
+             "STA MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2],
+             mac[3], mac[4], mac[5]);
+
+    ESP_LOGI(TAG_WIFI, "Open browser: http://192.168.4.2");
 
     //------------------------------------ Koniec Access Point ---------------------------------------------------
 
-    //------------------------------------ Sprawdzenie aktualnej partycji ---------------------------------------------------
+    //------------------------------------ ESP-NOW Receiver --------------------------------------------------
+    ESP_ERROR_CHECK(esp_now_init());
 
-    const esp_partition_t *running = esp_ota_get_running_partition();
-    printf("Running partition: %s\n", running->label);
+    ESP_ERROR_CHECK(
+        esp_now_register_recv_cb(recv_cb));
 
-    //------------------------------------ Koniec ---------------------------------------------------
+    ESP_LOGI(TAG_RECEIVER, "Waiting for packets...");
+
+    //------------------------------------ ESP-NOW Receiver --------------------------------------------------
+
+    //------------------------------------ ESP-NOW Sender --------------------------------------------------
+
+    ESP_ERROR_CHECK(
+        esp_now_register_send_cb(send_cb));
+
+    esp_now_peer_info_t peer = {0};
+
+    memcpy(peer.peer_addr,
+           receiver_mac,
+           ESP_NOW_ETH_ALEN);
+
+    peer.channel = WIFI_CHANNEL;
+    peer.ifidx=WIFI_IF_STA;
+    peer.encrypt = false;
+
+    ESP_ERROR_CHECK(
+        esp_now_add_peer(&peer));
+
+    uint32_t counter = 0;
 
     while (1)
     {
+        message_t msg = {
+            .counter = counter++};
+
+        
+esp_err_t send_result = esp_now_send(
+        receiver_mac,
+        (uint8_t *)&msg,
+        sizeof(msg));
+
+    if (send_result != ESP_OK)
+    {
+        ESP_LOGE(TAG_SENDER,
+                 "esp_now_send failed: %s",
+                 esp_err_to_name(send_result));
+    }
+
+        //----------------------------------- Koniec ESP-NOW Sender ------------------------------------
+
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
