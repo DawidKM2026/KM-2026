@@ -1,10 +1,7 @@
 idf_component_register(
-    SRCS "hello_world_main.c"
+    SRCS "main_app.c" "esp_now_comm.c" "config_access_point.c"
     INCLUDE_DIRS "."
-
-    EMBED_TXTFILES
-        "index.html"
-
+    
     PRIV_REQUIRES
         spi_flash
         app_update
