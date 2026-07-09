@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "hello_world_main.c"
+    SRCS "main_app.c" "esp_now_comm.c" "config_wifi.c" "over_the_air_updates.c"
     INCLUDE_DIRS "."
 
     EMBED_TXTFILES
