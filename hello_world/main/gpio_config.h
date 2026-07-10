@@ -1,0 +1,10 @@
+#pragma once
+
+#include "driver/gpio.h"
+
+#define STEP_PIN   GPIO_NUM_4
+#define DIR_PIN    GPIO_NUM_5
+#define EN_PIN     GPIO_NUM_6
+#define BUTTON_PIN GPIO_NUM_15
+
+void init_gpio(void);
