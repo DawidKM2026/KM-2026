@@ -1,4 +1,4 @@
-//1 obrót = około 12.5 mm
+// 1 obrót = około 12.5 mm
 /*
  * Timer GPTimer:
  * resolution_hz = 1 000 000 Hz
@@ -28,7 +28,6 @@
  * predkosc_mm = RPM * 12.5 / 60
  */
 
-
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -43,10 +42,12 @@
 #include "gpio_config.h"
 #include "stepper_motor.h"
 
-
+static gptimer_handle_t timer = NULL;
 static bool step_state = false;
 static bool enabled = true;
 static bool last_state = true;
+static bool enabled_direction = true;
+static int last_state_direction = 1;
 
 static bool IRAM_ATTR step_timer_callback(
     gptimer_handle_t timer,
@@ -61,7 +62,6 @@ static bool IRAM_ATTR step_timer_callback(
 
 void init_stepper_motor_timer(void)
 {
-    gptimer_handle_t timer = NULL;
 
     gptimer_config_t timer_config = {
         .clk_src = GPTIMER_CLK_SRC_DEFAULT,
@@ -86,7 +86,7 @@ void init_stepper_motor_timer(void)
 
     gptimer_alarm_config_t alarm_config = {
         .reload_count = 0,
-        .alarm_count = 2500,
+        .alarm_count = 4000,
         .flags.auto_reload_on_alarm = true,
     };
 
@@ -101,7 +101,7 @@ void init_stepper_motor_timer(void)
     gpio_set_level(EN_PIN, 0);
 }
 
-void motor_button_service(void)
+void motor_button_on_off(void)
 {
     bool state = gpio_get_level(BUTTON_PIN);
 
@@ -124,4 +124,44 @@ void motor_button_service(void)
     }
 
     last_state = state;
+}
+
+void motor_button_direction(void)
+{
+    bool state = gpio_get_level(DIRECTION_BUTTON_PIN);
+
+    if (last_state_direction == 1 && state == 0)
+    {
+        enabled_direction = !enabled_direction;
+
+        if (enabled_direction)
+        {
+            gpio_set_level(DIR_PIN, 0);
+            printf("Silnik przód\n");
+        }
+        else
+        {
+            gpio_set_level(DIR_PIN, 1);
+            printf("Silnik tył\n");
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+
+    last_state_direction = state;
+}
+
+void motor_set_speed(uint32_t motor_rps)
+{
+    uint32_t alarm_count =motor_rps;
+    gptimer_alarm_config_t alarm_config = {
+        .reload_count = 0,
+        .alarm_count = alarm_count,
+        .flags.auto_reload_on_alarm = true,
+    };
+
+    ESP_ERROR_CHECK(
+        gptimer_set_alarm_action(
+            timer,
+            &alarm_config));
 }

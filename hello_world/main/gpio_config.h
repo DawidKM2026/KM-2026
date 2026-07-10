@@ -6,5 +6,6 @@
 #define DIR_PIN    GPIO_NUM_5
 #define EN_PIN     GPIO_NUM_6
 #define BUTTON_PIN GPIO_NUM_15
+#define DIRECTION_BUTTON_PIN GPIO_NUM_39
 
 void init_gpio(void);

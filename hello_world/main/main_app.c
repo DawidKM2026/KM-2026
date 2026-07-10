@@ -7,8 +7,6 @@
 #include "esp_err.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
-#include "driver/gpio.h"
-#include "driver/gptimer.h"
 
 #include "config_wifi.h"
 #include "esp_now_comm.h"
@@ -66,7 +64,8 @@ void app_main(void)
 
     while (1)
 {
-    motor_button_service();
+    motor_button_on_off();
+    motor_button_direction();
 
     vTaskDelay(pdMS_TO_TICKS(10));
 }
