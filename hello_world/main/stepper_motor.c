@@ -220,6 +220,7 @@ typedef enum
 } */
 
 
+<<<<<<< HEAD
 /* //Przesunięcie
 void motor_move_by(int32_t x,int32_t y){
 
@@ -246,11 +247,31 @@ void motor_move_by(int32_t x,int32_t y){
         }
         while(pomiar_z_enkoder > x){
             current_x=pomiar_z_enkodera;
+=======
+void motor_move_by(int32_t x, int32_t y)
+{
+
+    // Surge Forward
+    if (x > 0)
+    {
+        setSurgeDirection(przód);
+
+        int32_t start_position = motor_encoder_get_count();
+        int32_t target_position = start_position + x;
+
+        motor_set_speed(45);
+
+        while (motor_encoder_get_count() < target_position)
+        {
+            current_x = motor_encoder_get_count();
+>>>>>>> ae4f549 (Komentarze)
             vTaskDelay(pdMS_TO_TICKS(10));
         }
+
         motor_set_speed(0);
     }
 
+<<<<<<< HEAD
     //Sway Forward
     if(y>0){
         motor_set_direction(MOTOR_SWAY,1);
@@ -260,11 +281,28 @@ void motor_move_by(int32_t x,int32_t y){
         }
         while(pomiar_z_enkoder < y){
             current_x=pomiar_z_enkodera;
+=======
+    // Surge Backward
+    else if (x < 0)
+    {
+        setSurgeDirection(tył);
+
+        int32_t start_position = motor_encoder_get_count();
+        int32_t target_position = start_position + x;
+
+        motor_set_speed(45);
+
+        while (motor_encoder_get_count() > target_position)
+        {
+            current_x = motor_encoder_get_count();
+>>>>>>> ae4f549 (Komentarze)
             vTaskDelay(pdMS_TO_TICKS(10));
         }
+
         motor_set_speed(0);
     }
 
+<<<<<<< HEAD
     //Sway Backward
     elseif(y<0){
         motor_set_direction(MOTOR_SWAY,0);
@@ -274,8 +312,43 @@ void motor_move_by(int32_t x,int32_t y){
         }
         while(pomiar_z_enkoder > y ){
             current_x=pomiar_z_enkodera;
+=======
+    // Sway Forward
+    if (y > 0)
+    {
+        setSwayDirection(przód);
+
+        int32_t start_position = motor_encoder_get_count();
+        int32_t target_position = start_position + y;
+
+        motor_set_speed(45);
+
+        while (motor_encoder_get_count() < target_position)
+        {
+            current_y = motor_encoder_get_count();
+>>>>>>> ae4f549 (Komentarze)
             vTaskDelay(pdMS_TO_TICKS(10));
         }
+
+        motor_set_speed(0);
+    }
+
+    // Sway Backward
+    else if (y < 0)
+    {
+        setSwayDirection(tył);
+
+        int32_t start_position = motor_encoder_get_count();
+        int32_t target_position = start_position + y;
+
+        motor_set_speed(45);
+
+        while (motor_encoder_get_count() > target_position)
+        {
+            current_y = motor_encoder_get_count();
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+
         motor_set_speed(0);
     }
 } */
