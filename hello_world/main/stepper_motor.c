@@ -188,36 +188,44 @@ void motor_button_direction(void)
 
 void motor_move_by(int32_t x,int32_t y){
 
-    //Surge
+    //Surge Forward
     if(x>0){
         setSurgeDirection(przód);
         motor_set_speed(45);
         while(pomiar_z_enkoder < x){
-
+            current_x=pomiar_z_enkodera;
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
-        motor_set_speed(0);    
-    }elseif(x<0){
+        motor_set_speed(0);
+    }
+    //Surge Backward
+    elseif(x<0){
         setSurgeDirection(tył);
         motor_set_speed(45);
         while(pomiar_z_enkoder > x){
-
+            current_x=pomiar_z_enkodera;
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
         motor_set_speed(0);
     }
 
-    //Sway
+    //Sway Forward
     if(y>0){
         setSwayDirection(przód);
         motor_set_speed(45);
         while(pomiar_z_enkoder < y){
-
+            current_x=pomiar_z_enkodera;
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
         motor_set_speed(0);
-    }elseif(y<0){
+    }
+    //Sway Backward
+    elseif(y<0){
         setSwayDirection(tył);
         motor_set_speed(45);
         while(pomiar_z_enkoder > y ){
-
+            current_x=pomiar_z_enkodera;
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
         motor_set_speed(0);
     }
