@@ -174,3 +174,111 @@ void motor_set_speed(uint32_t motor_rpm)
     printf("RPM = %" PRIu32 "\n", motor_rpm);
 
 }
+
+
+//------------------------------------ Encoder ---------------------------------------------------
+#include <math.h>
+#include "driver/pulse_cnt.h"
+
+#define ENCODER_A_GPIO GPIO_NUM_4
+#define ENCODER_B_GPIO GPIO_NUM_5
+
+#define ENCODER_CPR             250
+#define ENCODER_COUNTS_PER_REV (ENCODER_CPR * 4)
+
+static pcnt_unit_handle_t encoder_unit = NULL;
+
+void motor_encoder_init(void)
+{
+    pcnt_unit_config_t unit_config = {
+        .low_limit = -32768,
+        .high_limit = 32767,
+    };
+
+    ESP_ERROR_CHECK(
+        pcnt_new_unit(&unit_config, &encoder_unit));
+
+    pcnt_chan_handle_t chan_a = NULL;
+    pcnt_chan_handle_t chan_b = NULL;
+
+    pcnt_chan_config_t chan_a_cfg = {
+        .edge_gpio_num = ENCODER_A_GPIO,
+        .level_gpio_num = ENCODER_B_GPIO,
+    };
+
+    pcnt_chan_config_t chan_b_cfg = {
+        .edge_gpio_num = ENCODER_B_GPIO,
+        .level_gpio_num = ENCODER_A_GPIO,
+    };
+
+    ESP_ERROR_CHECK(
+        pcnt_new_channel(encoder_unit, &chan_a_cfg, &chan_a));
+
+    ESP_ERROR_CHECK(
+        pcnt_new_channel(encoder_unit, &chan_b_cfg, &chan_b));
+
+    // kanał A
+    pcnt_channel_set_edge_action(
+        chan_a,
+        PCNT_CHANNEL_EDGE_ACTION_DECREASE,
+        PCNT_CHANNEL_EDGE_ACTION_INCREASE);
+
+    pcnt_channel_set_level_action(
+        chan_a,
+        PCNT_CHANNEL_LEVEL_ACTION_KEEP,
+        PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+
+    // kanał B
+    pcnt_channel_set_edge_action(
+        chan_b,
+        PCNT_CHANNEL_EDGE_ACTION_INCREASE,
+        PCNT_CHANNEL_EDGE_ACTION_DECREASE);
+
+    pcnt_channel_set_level_action(
+        chan_b,
+        PCNT_CHANNEL_LEVEL_ACTION_KEEP,
+        PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+
+    ESP_ERROR_CHECK(pcnt_unit_enable(encoder_unit));
+    ESP_ERROR_CHECK(pcnt_unit_clear_count(encoder_unit));
+    ESP_ERROR_CHECK(pcnt_unit_start(encoder_unit));
+}
+
+int32_t motor_encoder_get_count(void)
+{
+    int count = 0;
+
+    if (encoder_unit != NULL)
+    {
+        pcnt_unit_get_count(encoder_unit, &count);
+    }
+
+    return count;
+}
+
+float motor_encoder_get_angle(void)
+{
+    int count = motor_encoder_get_count();
+
+    float angle =
+        ((float)count * 360.0f) /
+        (float)ENCODER_COUNTS_PER_REV;
+
+    angle = fmodf(angle, 360.0f);
+
+    if (angle < 0)
+    {
+        angle += 360.0f;
+    }
+
+    return angle;
+}
+
+void motor_encoder_reset_position(void)
+{
+    if (encoder_unit != NULL)
+    {
+        pcnt_unit_clear_count(encoder_unit);
+    }
+}
+//
