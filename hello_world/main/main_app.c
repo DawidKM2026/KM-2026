@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,7 +14,6 @@
 #include "over_the_air_updates.h"
 #include "gpio_config.h"
 #include "stepper_motor.h"
-
 
 
 void app_main(void)
@@ -63,10 +63,10 @@ void app_main(void)
     init_stepper_motor_timer();
 
     while (1)
-{
-    motor_button_on_off();
-    motor_button_direction();
+    {
+        motor_button_on_off();
+        motor_button_direction();
 
-    vTaskDelay(pdMS_TO_TICKS(10));
-}
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 }

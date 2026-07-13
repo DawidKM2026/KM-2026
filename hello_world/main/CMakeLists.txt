@@ -17,5 +17,6 @@ idf_component_register(
         esp_wifi
         esp_driver_gpio
         esp_driver_gptimer
+        esp_driver_uart
         log
 )

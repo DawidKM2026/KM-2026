@@ -9,19 +9,19 @@
  * 1 krok silnika = 2 alarmy
  * Silnik: 1.8° = 200 kroków/obrót
  * Śruba: 12.5 mm/obrót
- *
- * alarm_count | RPM | mm/s
- * ------------+-----+------
- *     10000   |  15 |  3.1
- *      5000   |  30 |  6.3
- *      2500   |  60 | 12.5
- *      2000   |  75 | 15.6
- *      1250   | 120 | 25.0
- *      1000   | 150 | 31.3
- *       625   | 240 | 50.0
- *       500   | 300 | 62.5
- *       250   | 600 | 125.0
- *
+ 
+ alarm_count | RPS  | RPM | mm/s
+------------+------+-----+-------
+    10000   | 0.25 |  15 |   3.1
+     5000   | 0.50 |  30 |   6.3
+     2500   | 1.00 |  60 |  12.5
+     2000   | 1.25 |  75 |  15.6
+     1250   | 2.00 | 120 |  25.0
+     1000   | 2.50 | 150 |  31.3
+      625   | 4.00 | 240 |  50.0 
+      500   | 5.00 | 300 |  62.5
+      250   |10.00 | 600 | 125.0
+ 
  * Wzory:
  * kroki_s     = 1000000 / (2 * alarm_count)
  * RPM         = kroki_s * 60 / 200
@@ -86,7 +86,7 @@ void init_stepper_motor_timer(void)
 
     gptimer_alarm_config_t alarm_config = {
         .reload_count = 0,
-        .alarm_count = 4000,
+        .alarm_count = 1000,
         .flags.auto_reload_on_alarm = true,
     };
 
@@ -151,17 +151,26 @@ void motor_button_direction(void)
     last_state_direction = state;
 }
 
-void motor_set_speed(uint32_t motor_rps)
+void motor_set_speed(uint32_t motor_rpm)
 {
-    uint32_t alarm_count =motor_rps;
+    if(motor_rpm!=0){
+
+    uint32_t alarm_count =(150000/motor_rpm);
+    
     gptimer_alarm_config_t alarm_config = {
         .reload_count = 0,
         .alarm_count = alarm_count,
         .flags.auto_reload_on_alarm = true,
     };
-
+    
     ESP_ERROR_CHECK(
         gptimer_set_alarm_action(
             timer,
             &alarm_config));
+    }else{
+        
+            gpio_set_level(EN_PIN, 1);
+    }
+    printf("RPM = %" PRIu32 "\n", motor_rpm);
+
 }
