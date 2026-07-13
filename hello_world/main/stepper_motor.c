@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -49,6 +50,8 @@ static bool last_state = true;
 static bool enabled_direction = true;
 static int last_state_direction = 1;
 
+
+
 static bool IRAM_ATTR step_timer_callback(
     gptimer_handle_t timer,
     const gptimer_alarm_event_data_t *edata,
@@ -58,6 +61,30 @@ static bool IRAM_ATTR step_timer_callback(
     gpio_set_level(STEP_PIN, step_state);
 
     return false;
+}
+
+void motor_set_speed(uint32_t motor_rpm)
+{
+    if(motor_rpm!=0){
+
+    uint32_t alarm_count =(150000/motor_rpm);
+    
+    gptimer_alarm_config_t alarm_config = {
+        .reload_count = 0,
+        .alarm_count = alarm_count,
+        .flags.auto_reload_on_alarm = true,
+    };
+    
+    ESP_ERROR_CHECK(
+        gptimer_set_alarm_action(
+            timer,
+            &alarm_config));
+    }else{
+        
+            gpio_set_level(EN_PIN, 1);
+    }
+    printf("RPM = %" PRIu32 "\n", motor_rpm);
+
 }
 
 void init_stepper_motor_timer(void)
@@ -86,7 +113,7 @@ void init_stepper_motor_timer(void)
 
     gptimer_alarm_config_t alarm_config = {
         .reload_count = 0,
-        .alarm_count = 1000,
+        .alarm_count = 5000,
         .flags.auto_reload_on_alarm = true,
     };
 
@@ -94,12 +121,18 @@ void init_stepper_motor_timer(void)
         gptimer_set_alarm_action(
             timer,
             &alarm_config));
+    
+    gpio_set_level(EN_PIN, 0);
 
     ESP_ERROR_CHECK(gptimer_enable(timer));
     ESP_ERROR_CHECK(gptimer_start(timer));
 
-    gpio_set_level(EN_PIN, 0);
-}
+    
+    for (int rpm = 15; rpm <= 60; rpm += 15){
+            motor_set_speed(rpm);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
 
 void motor_button_on_off(void)
 {
@@ -151,29 +184,65 @@ void motor_button_direction(void)
     last_state_direction = state;
 }
 
-void motor_set_speed(uint32_t motor_rpm)
-{
-    if(motor_rpm!=0){
 
-    uint32_t alarm_count =(150000/motor_rpm);
-    
-    gptimer_alarm_config_t alarm_config = {
-        .reload_count = 0,
-        .alarm_count = alarm_count,
-        .flags.auto_reload_on_alarm = true,
-    };
-    
-    ESP_ERROR_CHECK(
-        gptimer_set_alarm_action(
-            timer,
-            &alarm_config));
-    }else{
-        
-            gpio_set_level(EN_PIN, 1);
+
+void motor_move_by(int32_t x,int32_t y){
+
+    //Surge
+    if(x>0){
+        setSurgeDirection(przód);
+        motor_set_speed(45);
+        while(pomiar_z_enkoder < x){
+
+        }
+        motor_set_speed(0);    
+    }elseif(x<0){
+        setSurgeDirection(tył);
+        motor_set_speed(45);
+        while(pomiar_z_enkoder > x){
+
+        }
+        motor_set_speed(0);
     }
-    printf("RPM = %" PRIu32 "\n", motor_rpm);
 
+    //Sway
+    if(y>0){
+        setSwayDirection(przód);
+        motor_set_speed(45);
+        while(pomiar_z_enkoder < y){
+
+        }
+        motor_set_speed(0);
+    }elseif(y<0){
+        setSwayDirection(tył);
+        motor_set_speed(45);
+        while(pomiar_z_enkoder > y ){
+
+        }
+        motor_set_speed(0);
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //------------------------------------ Encoder ---------------------------------------------------
@@ -198,8 +267,8 @@ void motor_encoder_init(void)
     ESP_ERROR_CHECK(
         pcnt_new_unit(&unit_config, &encoder_unit));
 
-    pcnt_chan_handle_t chan_a = NULL;
-    pcnt_chan_handle_t chan_b = NULL;
+    pcnt_channel_handle_t chan_a = NULL;
+    pcnt_channel_handle_t chan_b = NULL;
 
     pcnt_chan_config_t chan_a_cfg = {
         .edge_gpio_num = ENCODER_A_GPIO,

@@ -61,23 +61,23 @@ void app_main(void)
 
     init_gpio();
     init_stepper_motor_timer();
-    motor_encoder_init();
+    /* motor_encoder_init(); */
 
-    uint32_t print_counter = 0;
+    /* uint32_t print_counter = 0; */
 
     while (1)
     {
         motor_button_on_off();
         motor_button_direction();
 
-        if (++print_counter >= 50)
+        /* if (++print_counter >= 50)
         {
             print_counter = 0;
 
             printf("CNT=%ld | ANG=%.2f deg\n",
                    (long)motor_encoder_get_count(),
                    motor_encoder_get_angle());
-        }
+        } */
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }
