@@ -69,7 +69,7 @@ void motor_set_speed(uint32_t motor_rpm)
 {
     if(motor_rpm!=0){
 
-    uint32_t alarm_count =(150000/motor_rpm);
+    uint32_t alarm_count =(150000/(motor_rpm*16)); //Mnożenie razy 16 wynika ze step mode 1/16
     
     gptimer_alarm_config_t alarm_config = {
         .reload_count = 0,
