@@ -382,7 +382,7 @@ void motor_move_by(int32_t x, int32_t y)
 #define ENCODER_A_GPIO GPIO_NUM_4
 #define ENCODER_B_GPIO GPIO_NUM_5
 
-#define ENCODER_CPR             250
+#define ENCODER_CPR             200
 #define ENCODER_COUNTS_PER_REV (ENCODER_CPR * 4)
 
 static pcnt_unit_handle_t encoder_unit = NULL;
