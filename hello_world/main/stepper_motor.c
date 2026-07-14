@@ -51,7 +51,7 @@ static bool enabled_direction = true;
 static int last_state_direction = 1;
 
 
-
+//Wywoływanie alarmu po upływie określonego czasu
 static bool IRAM_ATTR step_timer_callback(
     gptimer_handle_t timer,
     const gptimer_alarm_event_data_t *edata,
@@ -63,6 +63,8 @@ static bool IRAM_ATTR step_timer_callback(
     return false;
 }
 
+
+//Ustawianie prędkości obrotowej silnika
 void motor_set_speed(uint32_t motor_rpm)
 {
     if(motor_rpm!=0){
@@ -87,6 +89,7 @@ void motor_set_speed(uint32_t motor_rpm)
 
 }
 
+//Inicjalizacja
 void init_stepper_motor_timer(void)
 {
 
@@ -134,6 +137,7 @@ void init_stepper_motor_timer(void)
         }
     }
 
+//Switch do właczania/wyłączania silnika 
 void motor_button_on_off(void)
 {
     bool state = gpio_get_level(BUTTON_PIN);
@@ -159,6 +163,7 @@ void motor_button_on_off(void)
     last_state = state;
 }
 
+//Switch do zmiany  kierunku
 void motor_button_direction(void)
 {
     bool state = gpio_get_level(DIRECTION_BUTTON_PIN);
@@ -184,24 +189,61 @@ void motor_button_direction(void)
     last_state_direction = state;
 }
 
+//Ustawianie kierunku silnika
+typedef enum
+{
+    MOTOR_SURGE,
+    MOTOR_SWAY,
+} motor_t;
+
+void motor_set_direction(motor_t motor,bool direction){
+    switch(motor){
+
+        default:
+        printf("Zadano błędną wartość"
+        );
+        break;
+
+        //Surge
+        case MOTOR_SURGE:
+        gpio_set_level(SURGE_1_DIR_PIN, direction);
+        gpio_set_level(SURGE_2_DIR_PIN, !direction);
+        printf("Kierunek: %s\n", direction ? "przód" : "tył");
+        break;
+        
+        //Sway
+        case MOTOR_SWAY:
+        gpio_set_level(SWAY_DIR_PIN, direction);
+        printf("Kierunek: %s\n", direction ? "tył" : "przód");
+        break;
+    }
+}
 
 
+//Przesunięcie
 void motor_move_by(int32_t x,int32_t y){
 
     //Surge Forward
     if(x>0){
-        setSurgeDirection(przód);
-        motor_set_speed(45);
+        motor_set_direction(MOTOR_SURGE,1);
+        for (int rpm = 15; rpm <= 45; rpm += 15){
+            motor_set_speed(rpm);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
         while(pomiar_z_enkoder < x){
             current_x=pomiar_z_enkodera;
             vTaskDelay(pdMS_TO_TICKS(10));
         }
         motor_set_speed(0);
     }
+
     //Surge Backward
     elseif(x<0){
-        setSurgeDirection(tył);
-        motor_set_speed(45);
+        motor_set_direction(MOTOR_SURGE,0);
+        for (int rpm = 15; rpm <= 45; rpm += 15){
+            motor_set_speed(rpm);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
         while(pomiar_z_enkoder > x){
             current_x=pomiar_z_enkodera;
             vTaskDelay(pdMS_TO_TICKS(10));
@@ -211,18 +253,25 @@ void motor_move_by(int32_t x,int32_t y){
 
     //Sway Forward
     if(y>0){
-        setSwayDirection(przód);
-        motor_set_speed(45);
+        motor_set_direction(MOTOR_SWAY,1);
+        for (int rpm = 15; rpm <= 45; rpm += 15){
+            motor_set_speed(rpm);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
         while(pomiar_z_enkoder < y){
             current_x=pomiar_z_enkodera;
             vTaskDelay(pdMS_TO_TICKS(10));
         }
         motor_set_speed(0);
     }
+
     //Sway Backward
     elseif(y<0){
-        setSwayDirection(tył);
-        motor_set_speed(45);
+        motor_set_direction(MOTOR_SWAY,0);
+        for (int rpm = 15; rpm <= 45; rpm += 15){
+            motor_set_speed(rpm);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
         while(pomiar_z_enkoder > y ){
             current_x=pomiar_z_enkodera;
             vTaskDelay(pdMS_TO_TICKS(10));
