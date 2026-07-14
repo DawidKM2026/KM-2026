@@ -220,34 +220,6 @@ typedef enum
 } */
 
 
-<<<<<<< HEAD
-/* //Przesunięcie
-void motor_move_by(int32_t x,int32_t y){
-
-    //Surge Forward
-    if(x>0){
-        motor_set_direction(MOTOR_SURGE,1);
-        for (int rpm = 15; rpm <= 45; rpm += 15){
-            motor_set_speed(rpm);
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        while(pomiar_z_enkoder < x){
-            current_x=pomiar_z_enkodera;
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-        motor_set_speed(0);
-    }
-
-    //Surge Backward
-    elseif(x<0){
-        motor_set_direction(MOTOR_SURGE,0);
-        for (int rpm = 15; rpm <= 45; rpm += 15){
-            motor_set_speed(rpm);
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        while(pomiar_z_enkoder > x){
-            current_x=pomiar_z_enkodera;
-=======
 void motor_move_by(int32_t x, int32_t y)
 {
 
@@ -264,24 +236,12 @@ void motor_move_by(int32_t x, int32_t y)
         while (motor_encoder_get_count() < target_position)
         {
             current_x = motor_encoder_get_count();
->>>>>>> ae4f549 (Komentarze)
             vTaskDelay(pdMS_TO_TICKS(10));
         }
 
         motor_set_speed(0);
     }
 
-<<<<<<< HEAD
-    //Sway Forward
-    if(y>0){
-        motor_set_direction(MOTOR_SWAY,1);
-        for (int rpm = 15; rpm <= 45; rpm += 15){
-            motor_set_speed(rpm);
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        while(pomiar_z_enkoder < y){
-            current_x=pomiar_z_enkodera;
-=======
     // Surge Backward
     else if (x < 0)
     {
@@ -295,24 +255,12 @@ void motor_move_by(int32_t x, int32_t y)
         while (motor_encoder_get_count() > target_position)
         {
             current_x = motor_encoder_get_count();
->>>>>>> ae4f549 (Komentarze)
             vTaskDelay(pdMS_TO_TICKS(10));
         }
 
         motor_set_speed(0);
     }
 
-<<<<<<< HEAD
-    //Sway Backward
-    elseif(y<0){
-        motor_set_direction(MOTOR_SWAY,0);
-        for (int rpm = 15; rpm <= 45; rpm += 15){
-            motor_set_speed(rpm);
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        while(pomiar_z_enkoder > y ){
-            current_x=pomiar_z_enkodera;
-=======
     // Sway Forward
     if (y > 0)
     {
@@ -326,7 +274,6 @@ void motor_move_by(int32_t x, int32_t y)
         while (motor_encoder_get_count() < target_position)
         {
             current_y = motor_encoder_get_count();
->>>>>>> ae4f549 (Komentarze)
             vTaskDelay(pdMS_TO_TICKS(10));
         }
 
