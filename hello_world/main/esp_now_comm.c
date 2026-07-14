@@ -22,8 +22,9 @@ typedef enum
 {
     CMD_SET_POSITION = 1,
     CMD_GET_POSITION = 2,
-    CMD_POSITION_RESPONSE = 3,
-    CMD_ACK_POSITION = 4
+    CMD_SET_MOVE_BY=3,
+    CMD_POSITION_RESPONSE = 4,
+    CMD_ACK_POSITION = 5
 } command_t;
 
 //Struktura odpowiedzi
@@ -124,6 +125,10 @@ static void recv_cb(
                      (uint8_t *)&response,
                      sizeof(response));
 
+        break;
+    }
+    case CMD_SET_MOVE_BY:
+    {
         break;
     }
     }

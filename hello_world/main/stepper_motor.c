@@ -131,7 +131,7 @@ void init_stepper_motor_timer(void)
     ESP_ERROR_CHECK(gptimer_start(timer));
 
     
-    for (int rpm = 15; rpm <= 60; rpm += 15){
+    for (int rpm = 15; rpm <= 30; rpm += 15){
             motor_set_speed(rpm);
             vTaskDelay(pdMS_TO_TICKS(100));
         }
@@ -196,7 +196,7 @@ typedef enum
     MOTOR_SWAY,
 } motor_t;
 
-void motor_set_direction(motor_t motor,bool direction){
+/* void motor_set_direction(motor_t motor,bool direction){
     switch(motor){
 
         default:
@@ -217,10 +217,10 @@ void motor_set_direction(motor_t motor,bool direction){
         printf("Kierunek: %s\n", direction ? "tył" : "przód");
         break;
     }
-}
+} */
 
 
-//Przesunięcie
+/* //Przesunięcie
 void motor_move_by(int32_t x,int32_t y){
 
     //Surge Forward
@@ -278,7 +278,7 @@ void motor_move_by(int32_t x,int32_t y){
         }
         motor_set_speed(0);
     }
-}
+} */
 
 
 
