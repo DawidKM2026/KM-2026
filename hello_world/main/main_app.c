@@ -60,15 +60,24 @@ void app_main(void)
         espnow_init(); */
 
     init_gpio();
+    motor_encoder_init();
     init_stepper_motor_timer();
-    /* motor_encoder_init(); */
+
+
 
     /* uint32_t print_counter = 0; */
 
     while (1)
     {
+
+        
         motor_button_on_off();
-        motor_button_direction();
+      
+
+ 
+        
+        /* 
+        motor_button_direction(); */
 
         /* if (++print_counter >= 50)
         {

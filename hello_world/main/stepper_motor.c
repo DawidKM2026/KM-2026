@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <stdlib.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -41,15 +42,87 @@
 #include "esp_err.h"
 
 #include "gpio_config.h"
+#include "esp_now_comm.h"
 #include "stepper_motor.h"
 
 static gptimer_handle_t timer = NULL;
-static bool step_state = false;
-static bool enabled = true;
+static volatile  bool step_state = false;
+static bool enabled = false;
 static bool last_state = true;
 static bool enabled_direction = true;
 static int last_state_direction = 1;
+extern int32_t current_x;
+extern int32_t current_y;
+static TaskHandle_t motor_task_handle = NULL;
+static volatile bool stop_request = false;
+static bool timer_running = false;
 
+
+//Funkcje pomocnicze, zabezpieczające przed uruchamianiem włączonego timera i wyłączaniem wyłączonego timera
+static esp_err_t motor_timer_start(void)
+{
+    if (timer_running)
+    {
+        return ESP_OK;
+    }
+
+    esp_err_t err = gptimer_start(timer);
+
+    if (err == ESP_OK)
+    {
+        timer_running = true;
+    }
+
+    return err;
+}
+
+static esp_err_t motor_timer_stop(void)
+{
+    if (!timer_running)
+    {
+        return ESP_OK;
+    }
+
+    esp_err_t err = gptimer_stop(timer);
+
+    if (err == ESP_OK)
+    {
+        timer_running = false;
+    }
+
+    return err;
+}
+
+void motor_task(void *pvParameters)
+{
+    while (1)
+    {
+        // Czekaj aż ktoś wyśle powiadomienie
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        printf("Start ruchu\n");
+
+        motor_move_to(50, 0);
+
+        printf("Koniec ruchu\n");
+    }
+}
+
+//Zatrzymanie silnika
+static void motor_stop(void)
+{
+    esp_err_t err = motor_timer_stop();
+
+    if (err != ESP_OK)
+    {
+        printf("Blad zatrzymania timera: %s\n",
+               esp_err_to_name(err));
+    }
+
+    step_state = false;
+    gpio_set_level(STEP_PIN, 0);
+    gpio_set_level(EN_PIN, 1);
+}
 
 //Wywoływanie alarmu po upływie określonego czasu
 static bool IRAM_ATTR step_timer_callback(
@@ -68,7 +141,8 @@ static bool IRAM_ATTR step_timer_callback(
 void motor_set_speed(uint32_t motor_rpm)
 {
     if(motor_rpm!=0){
-
+    
+            gpio_set_level(EN_PIN, 0);
     uint32_t alarm_count =(150000/(motor_rpm*16)); //Mnożenie razy 16 wynika ze step mode 1/16
     
     gptimer_alarm_config_t alarm_config = {
@@ -89,7 +163,7 @@ void motor_set_speed(uint32_t motor_rpm)
 
 }
 
-//Inicjalizacja
+//Inicjalizacja timera
 void init_stepper_motor_timer(void)
 {
 
@@ -128,14 +202,219 @@ void init_stepper_motor_timer(void)
     gpio_set_level(EN_PIN, 0);
 
     ESP_ERROR_CHECK(gptimer_enable(timer));
-    ESP_ERROR_CHECK(gptimer_start(timer));
+    xTaskCreate(
+    motor_task,
+    "motor_task",
+    4096,
+    NULL,
+    5,
+    &motor_task_handle);
+    }
+
+    //Wybierz kierunek ruchu
+    void motor_set_direction(motor_t motor,bool direction){
+    switch(motor){
+
+        default:
+        printf("Zadano błędną wartość"
+        );
+        break;
+
+        //Surge
+        case MOTOR_SURGE:
+        gpio_set_level(/* SURGE_1_DIR_PIN */DIR_PIN, direction);
+        /* gpio_set_level( SURGE_2_DIR_PIN , !direction); */
+        printf("Kierunek: %s\n", direction ? "przód" : "tył");
+        break;
+        
+        //Sway
+        case MOTOR_SWAY:
+        gpio_set_level(/* SWAY_DIR_PIN */DIR_PIN, direction);
+        printf("Kierunek: %s\n", direction ? "przód" : "tył");
+        break;
+    }
+}
+
+//Przesunięcie platformy w osi X i osi Y do zadanego punktu
+void motor_move_to(int32_t x, int32_t y)
+{
+    x=x*64; //(800/12.5) //800 impulsów enkodera na obrót. Jeden obrót to około 12,5mm.
+    y=y*64; //(800/12.5)
 
     
-    for (int rpm = 15; rpm <= 30; rpm += 15){
-            motor_set_speed(rpm);
-            vTaskDelay(pdMS_TO_TICKS(100));
+    int32_t start_position_x = motor_encoder_get_count();
+
+    
+    printf("Start: %"PRId32 "\n", start_position_x);
+    printf("Cel: %"PRId32 "\n", x);
+
+    // Surge Forward
+    if (x-start_position_x > 0) //Trzeba przeliczyć na uklad związany ze statkiek
+    {
+        motor_set_direction(MOTOR_SURGE,0);
+        
+        motor_set_speed(30);
+        ESP_ERROR_CHECK(motor_timer_start());
+
+        while (motor_encoder_get_count() < x)
+        {
+            if (stop_request)
+                break;
+            current_x = motor_encoder_get_count();
+            
+            
+        printf("Cel: %"PRId32 "\n", x);
+        printf("Aktualne: %"PRId32 "\n", current_x);
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
+
+        motor_stop();
     }
+
+    // Surge Backward
+    else if (x-start_position_x < 0)
+    {
+        motor_set_direction(MOTOR_SURGE,1);
+
+        motor_set_speed(30);
+        ESP_ERROR_CHECK(motor_timer_start());
+
+        while (motor_encoder_get_count() > x)
+        {
+            if (stop_request)
+                break;
+            current_x = motor_encoder_get_count();
+            printf("Cel: %"PRId32 "\n", x);
+            printf("Aktualne: %"PRId32 "\n", current_x);
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+
+        motor_stop();
+    }
+
+    /* // Sway Forward
+    if (y > 0)
+    {
+        motor_set_direction(MOTOR_SURGE,0);
+
+        printf("Start: %"PRId32 "\n", start_position);
+        int32_t target_position = abs(x-start_position);
+        printf("Cel: %"PRId32 "\n", y);
+        
+        ESP_ERROR_CHECK(motor_timer_start());
+        motor_set_speed(30);
+
+        while (motor_encoder_get_count() < y)
+        {
+            if (stop_request)
+                break;
+            current_x = motor_encoder_get_count();
+            
+        printf("Cel: %"PRId32 "\n", y);
+        
+        printf("Aktualne: %"PRId32 "\n", current_x);
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+
+        motor_stop();
+    }
+
+    // Sway Backward
+    else if (y < 0)
+    {
+        motor_set_direction(MOTOR_SURGE,1);
+
+        printf("Start: %"PRId32 "\n", start_position);
+        int32_t target_position = abs(x-start_position);
+        printf("Cel: %"PRId32 "\n", y);
+        
+        ESP_ERROR_CHECK(motor_timer_start());
+        motor_set_speed(30);
+
+        while (motor_encoder_get_count() > y)
+        {
+            if (stop_request)
+                break;
+            current_x = motor_encoder_get_count();
+            
+        printf("Cel: %"PRId32 "\n", y);
+        
+        printf("Aktualne: %"PRId32 "\n", current_x);
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+motor_stop();
+    } */
+} 
+
+//Ręczne przesuwanie platformy w osi X i osi Y
+void motor_move_by(int32_t wychylenie_x, int32_t wychylenie_y)
+{
+    
+    int32_t start_position_x = motor_encoder_get_count();
+    printf("Start: %"PRId32 "\n", start_position_x);
+
+    //Joystick nieruchomo
+    if (wychylenie_x == 0 && wychylenie_y == 0)
+    {
+        motor_stop();
+        return;
+    }
+
+    // Surge Forward
+    if (wychylenie_x > 0)
+    {
+        motor_set_direction(MOTOR_SURGE,0);
+        motor_set_speed((wychylenie_x*45)/100);   
+        ESP_ERROR_CHECK(motor_timer_start());
+    }
+
+    // Surge Backward
+    else if (wychylenie_x < 0)
+    {
+        motor_set_direction(MOTOR_SURGE,1);
+        motor_set_speed((abs(wychylenie_x)*45)/100);
+        ESP_ERROR_CHECK(motor_timer_start());
+    }
+
+    // Sway Forward
+    if (wychylenie_y > 0)
+    {
+        motor_set_direction(MOTOR_SWAY,1);
+        motor_set_speed((wychylenie_y*45)/100);
+        ESP_ERROR_CHECK(motor_timer_start());
+    }
+
+    // Sway Backward
+    else if (wychylenie_y < 0)
+    {
+        motor_set_direction(MOTOR_SWAY,0);
+        motor_set_speed((abs(wychylenie_y)*45)/100);   
+        ESP_ERROR_CHECK(motor_timer_start());
+}
+}
+/* //Bazowanie statku
+bool motor_homing(void){
+    motor_set_direction(MOTOR_SURGE,1);
+    motor_set_direction(MOTOR_SWAY,1);
+    motor_set_speed(SURGE,15);
+    motor_set_speed(SWAY,15);
+    while(krańcówka_x==1 OR krańcówka_y==1){
+        if(krańcówka_x==0){
+            motor_set_speed(SURGE,0);
+        }
+        if(krańcówka_y==0){
+            motor_set_speed(SWAY,0);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    current_x=-100;
+    current_y=-100;
+    motor_move_to(0,0);
+    motor_encoder_reset_position
+    current_x=0;
+    current_y=0;
+    printf("Bazowanie zakończone");
+} */
 
 //Switch do właczania/wyłączania silnika 
 void motor_button_on_off(void)
@@ -148,13 +427,18 @@ void motor_button_on_off(void)
 
         if (enabled)
         {
+            stop_request=false;
             gpio_set_level(EN_PIN, 0);
             printf("Silnik ON\n");
+            xTaskNotifyGive(motor_task_handle);
+            
         }
         else
         {
+            stop_request=true;
             gpio_set_level(EN_PIN, 1);
             printf("Silnik OFF\n");
+            ESP_ERROR_CHECK(motor_timer_stop());
         }
 
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -163,144 +447,50 @@ void motor_button_on_off(void)
     last_state = state;
 }
 
-//Switch do zmiany  kierunku
-void motor_button_direction(void)
-{
-    bool state = gpio_get_level(DIRECTION_BUTTON_PIN);
 
-    if (last_state_direction == 1 && state == 0)
+void motor_test(void)
+{
+    printf("TEST: uruchamianie silnika\n");
+
+    stop_request = false;
+
+    /* Ustawienie kierunku */
+    motor_set_direction(MOTOR_SURGE, 0);
+
+    /* Najpierw konfiguracja prędkości */
+    motor_set_speed(30);
+
+    /* Następnie uruchomienie timera */
+    esp_err_t err = motor_timer_start();
+
+    if (err != ESP_OK)
     {
-        enabled_direction = !enabled_direction;
-
-        if (enabled_direction)
-        {
-            gpio_set_level(DIR_PIN, 0);
-            printf("Silnik przód\n");
-        }
-        else
-        {
-            gpio_set_level(DIR_PIN, 1);
-            printf("Silnik tył\n");
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-
-    last_state_direction = state;
-}
-
-//Ustawianie kierunku silnika
-typedef enum
-{
-    MOTOR_SURGE,
-    MOTOR_SWAY,
-} motor_t;
-
-/* void motor_set_direction(motor_t motor,bool direction){
-    switch(motor){
-
-        default:
-        printf("Zadano błędną wartość"
+        printf(
+            "Blad uruchomienia timera: %s\n",
+            esp_err_to_name(err)
         );
-        break;
 
-        //Surge
-        case MOTOR_SURGE:
-        gpio_set_level(SURGE_1_DIR_PIN, direction);
-        gpio_set_level(SURGE_2_DIR_PIN, !direction);
-        printf("Kierunek: %s\n", direction ? "przód" : "tył");
-        break;
-        
-        //Sway
-        case MOTOR_SWAY:
-        gpio_set_level(SWAY_DIR_PIN, direction);
-        printf("Kierunek: %s\n", direction ? "tył" : "przód");
-        break;
-    }
-} */
-
-
-void motor_move_by(int32_t x, int32_t y)
-{
-
-    // Surge Forward
-    if (x > 0)
-    {
-        setSurgeDirection(przód);
-
-        int32_t start_position = motor_encoder_get_count();
-        int32_t target_position = start_position + x;
-
-        motor_set_speed(45);
-
-        while (motor_encoder_get_count() < target_position)
-        {
-            current_x = motor_encoder_get_count();
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-
-        motor_set_speed(0);
+        motor_stop();
+        return;
     }
 
-    // Surge Backward
-    else if (x < 0)
-    {
-        setSurgeDirection(tył);
+    printf(
+        "Silnik uruchomiony | EN=%d | DIR=%d\n",
+        gpio_get_level(EN_PIN),
+        gpio_get_level(DIR_PIN)
+    );
 
-        int32_t start_position = motor_encoder_get_count();
-        int32_t target_position = start_position + x;
+    /* Silnik pracuje przez 5 sekund */
+    vTaskDelay(pdMS_TO_TICKS(5000));
 
-        motor_set_speed(45);
+    motor_stop();
 
-        while (motor_encoder_get_count() > target_position)
-        {
-            current_x = motor_encoder_get_count();
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-
-        motor_set_speed(0);
-    }
-
-    // Sway Forward
-    if (y > 0)
-    {
-        setSwayDirection(przód);
-
-        int32_t start_position = motor_encoder_get_count();
-        int32_t target_position = start_position + y;
-
-        motor_set_speed(45);
-
-        while (motor_encoder_get_count() < target_position)
-        {
-            current_y = motor_encoder_get_count();
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-
-        motor_set_speed(0);
-    }
-
-    // Sway Backward
-    else if (y < 0)
-    {
-        setSwayDirection(tył);
-
-        int32_t start_position = motor_encoder_get_count();
-        int32_t target_position = start_position + y;
-
-        motor_set_speed(45);
-
-        while (motor_encoder_get_count() > target_position)
-        {
-            current_y = motor_encoder_get_count();
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-
-        motor_set_speed(0);
-    }
-} */
-
-
+    printf(
+        "Silnik zatrzymany | EN=%d | STEP=%d\n",
+        gpio_get_level(EN_PIN),
+        gpio_get_level(STEP_PIN)
+    );
+}
 
 
 
@@ -326,8 +516,8 @@ void motor_move_by(int32_t x, int32_t y)
 #include <math.h>
 #include "driver/pulse_cnt.h"
 
-#define ENCODER_A_GPIO GPIO_NUM_4
-#define ENCODER_B_GPIO GPIO_NUM_5
+#define ENCODER_A_GPIO GPIO_NUM_7
+#define ENCODER_B_GPIO GPIO_NUM_8
 
 #define ENCODER_CPR             200
 #define ENCODER_COUNTS_PER_REV (ENCODER_CPR * 4)
@@ -335,7 +525,11 @@ void motor_move_by(int32_t x, int32_t y)
 static pcnt_unit_handle_t encoder_unit = NULL;
 
 void motor_encoder_init(void)
+
 {
+    
+    printf("Encoder init\n");
+
     pcnt_unit_config_t unit_config = {
         .low_limit = -32768,
         .high_limit = 32767,
@@ -388,6 +582,14 @@ void motor_encoder_init(void)
     ESP_ERROR_CHECK(pcnt_unit_enable(encoder_unit));
     ESP_ERROR_CHECK(pcnt_unit_clear_count(encoder_unit));
     ESP_ERROR_CHECK(pcnt_unit_start(encoder_unit));
+    printf("encoder_unit=%p\n", encoder_unit);
+
+int cnt = 0;
+esp_err_t err = pcnt_unit_get_count(encoder_unit, &cnt);
+
+printf("PCNT TEST err=%s cnt=%d\n",
+       esp_err_to_name(err),
+       cnt);
 }
 
 int32_t motor_encoder_get_count(void)
@@ -396,7 +598,16 @@ int32_t motor_encoder_get_count(void)
 
     if (encoder_unit != NULL)
     {
-        pcnt_unit_get_count(encoder_unit, &count);
+        esp_err_t err = pcnt_unit_get_count(encoder_unit, &count);
+
+        if (err != ESP_OK)
+        {
+            printf("PCNT ERROR: %s\n", esp_err_to_name(err));
+        }
+    }
+    else
+    {
+        printf("encoder_unit == NULL\n");
     }
 
     return count;
@@ -427,4 +638,3 @@ void motor_encoder_reset_position(void)
         pcnt_unit_clear_count(encoder_unit);
     }
 }
-//
