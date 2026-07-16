@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main_app.c" "esp_now_comm.c" "config_wifi.c" "over_the_air_updates.c" "gpio_config.c" "stepper_motor.c"
+    SRCS "spherical_parallel_manipulator.c" "main_app.c" "esp_now_comm.c" "config_wifi.c" "over_the_air_updates.c" "gpio_config.c" "stepper_motor.c"
     INCLUDE_DIRS "."
 
     EMBED_TXTFILES

@@ -63,30 +63,13 @@ void app_main(void)
     motor_encoder_init();
     init_stepper_motor_timer();
 
-
-
-    /* uint32_t print_counter = 0; */
+    /* bool homing_done = motor_homing();
+    printf("Bazowanie zakonczone: %d\n", homing_done); */
 
     while (1)
     {
-
-        
         motor_button_on_off();
-      
-
- 
-        
-        /* 
-        motor_button_direction(); */
-
-        /* if (++print_counter >= 50)
-        {
-            print_counter = 0;
-
-            printf("CNT=%ld | ANG=%.2f deg\n",
-                   (long)motor_encoder_get_count(),
-                   motor_encoder_get_angle());
-        } */
+        motor_limit_switch_x();
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }

@@ -32,12 +32,14 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #include "driver/gpio.h"
 #include "driver/gptimer.h"
+#include "driver/pulse_cnt.h"
 
 #include "esp_err.h"
 
@@ -45,6 +47,11 @@
 #include "esp_now_comm.h"
 #include "stepper_motor.h"
 
+
+#define ENCODER_CPR             200
+#define ENCODER_COUNTS_PER_REV (ENCODER_CPR * 4)
+
+static pcnt_unit_handle_t encoder_unit = NULL;
 static gptimer_handle_t timer = NULL;
 static volatile  bool step_state = false;
 static bool enabled = false;
@@ -56,6 +63,12 @@ extern int32_t current_y;
 static TaskHandle_t motor_task_handle = NULL;
 static volatile bool stop_request = false;
 static bool timer_running = false;
+
+//Fizyczne wymiary pola, na którym porusza się makieta statku
+static int max_x_limit=100; 
+static int min_x_limit=100;
+static int max_y_limit=100;
+static int min_y_limit=100;
 
 
 //Funkcje pomocnicze, zabezpieczające przed uruchamianiem włączonego timera i wyłączaniem wyłączonego timera
@@ -102,7 +115,7 @@ void motor_task(void *pvParameters)
 
         printf("Start ruchu\n");
 
-        motor_move_to(50, 0);
+        motor_move_to(100, 0);
 
         printf("Koniec ruchu\n");
     }
@@ -392,29 +405,33 @@ void motor_move_by(int32_t wychylenie_x, int32_t wychylenie_y)
         ESP_ERROR_CHECK(motor_timer_start());
 }
 }
-/* //Bazowanie statku
-bool motor_homing(void){
-    motor_set_direction(MOTOR_SURGE,1);
+
+
+//Bazowanie statku
+/* bool motor_homing(void){
+     motor_set_direction(MOTOR_SURGE,1);
     motor_set_direction(MOTOR_SWAY,1);
     motor_set_speed(SURGE,15);
     motor_set_speed(SWAY,15);
-    while(krańcówka_x==1 OR krańcówka_y==1){
-        if(krańcówka_x==0){
-            motor_set_speed(SURGE,0);
+    while(LIMIT_SWITCH_X_PIN==1 OR LIMIT_SWITCH_Y_PIN==1){
+        if(LIMIT_SWITCH_X_PIN==0){
+            motor_set_speed(0);
         }
-        if(krańcówka_y==0){
+        if(LIMIT_SWITCH_Y_PIN==0){
             motor_set_speed(SWAY,0);
         }
         vTaskDelay(pdMS_TO_TICKS(10));
-    }
-    current_x=-100;
-    current_y=-100;
+    } 
+
+    //Reset układu współrzędnych
     motor_move_to(0,0);
-    motor_encoder_reset_position
+    motor_encoder_reset_position();
     current_x=0;
     current_y=0;
     printf("Bazowanie zakończone");
+    return true
 } */
+
 
 //Switch do właczania/wyłączania silnika 
 void motor_button_on_off(void)
@@ -447,49 +464,21 @@ void motor_button_on_off(void)
     last_state = state;
 }
 
-
-void motor_test(void)
+//Switch krańcówka 
+void motor_limit_switch_x(void)
 {
-    printf("TEST: uruchamianie silnika\n");
+    bool state = gpio_get_level(LIMIT_SWITCH_X_PIN);
 
-    stop_request = false;
-
-    /* Ustawienie kierunku */
-    motor_set_direction(MOTOR_SURGE, 0);
-
-    /* Najpierw konfiguracja prędkości */
-    motor_set_speed(30);
-
-    /* Następnie uruchomienie timera */
-    esp_err_t err = motor_timer_start();
-
-    if (err != ESP_OK)
+    if (state == 0)
     {
-        printf(
-            "Blad uruchomienia timera: %s\n",
-            esp_err_to_name(err)
-        );
-
         motor_stop();
-        return;
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        motor_move_to(0, 0);  
+        motor_encoder_reset_position();
+        current_x=0;
+        current_y=0;
+        printf("Bazowanie zakończone");
     }
-
-    printf(
-        "Silnik uruchomiony | EN=%d | DIR=%d\n",
-        gpio_get_level(EN_PIN),
-        gpio_get_level(DIR_PIN)
-    );
-
-    /* Silnik pracuje przez 5 sekund */
-    vTaskDelay(pdMS_TO_TICKS(5000));
-
-    motor_stop();
-
-    printf(
-        "Silnik zatrzymany | EN=%d | STEP=%d\n",
-        gpio_get_level(EN_PIN),
-        gpio_get_level(STEP_PIN)
-    );
 }
 
 
@@ -499,31 +488,7 @@ void motor_test(void)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 //------------------------------------ Encoder ---------------------------------------------------
-#include <math.h>
-#include "driver/pulse_cnt.h"
-
-#define ENCODER_A_GPIO GPIO_NUM_7
-#define ENCODER_B_GPIO GPIO_NUM_8
-
-#define ENCODER_CPR             200
-#define ENCODER_COUNTS_PER_REV (ENCODER_CPR * 4)
-
-static pcnt_unit_handle_t encoder_unit = NULL;
-
 void motor_encoder_init(void)
 
 {

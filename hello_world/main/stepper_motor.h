@@ -19,10 +19,11 @@ void motor_button_on_off(void);
 void motor_move_to(int32_t x_mm, int32_t y_mm);
 void motor_move_by(int32_t wychylenie_x, int32_t wychylenie_y);
 
-void motor_test(void);
+/* bool motor_homing(void); */
 
 /* Enkoder */
 void motor_encoder_init(void);
 int32_t motor_encoder_get_count(void);
 float motor_encoder_get_angle(void);
 void motor_encoder_reset_position(void);
+void motor_limit_switch_x(void);
