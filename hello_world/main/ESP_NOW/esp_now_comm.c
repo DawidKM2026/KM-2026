@@ -8,6 +8,12 @@
 #include "esp_wifi.h"
 #include "esp_err.h"
 
+#include "driver/gpio.h"
+#include "gpio_config.h"
+
+#include "stepper_motor.h"
+
+
 
 // Koordynaty
 int32_t target_x;
@@ -17,14 +23,22 @@ int32_t current_x = 5;
 int32_t current_y = 8;
 
 
+//Fizyczne wymiary pola, na którym porusza się makieta statku
+int max_x_limit=100; 
+int min_x_limit=100;
+int max_y_limit=100;
+int min_y_limit=100;
+
+
 //Komendy
 typedef enum
 {
-    CMD_SET_POSITION = 1,
+    CMD_SET_FIELD_DIMENSIONS = 1,
     CMD_GET_POSITION = 2,
-    CMD_SET_MOVE_BY=3,
-    CMD_POSITION_RESPONSE = 4,
-    CMD_ACK_POSITION = 5
+    CMD_SET_MOVE_TO=3,
+    CMD_SET_MOVE_BY=4,
+    CMD_POSITION_RESPONSE = 5,
+    CMD_ACK_POSITION = 6
 } command_t;
 
 //Struktura odpowiedzi
@@ -46,12 +60,8 @@ static uint8_t receiver_mac[] = {
     0x24, 0x58, 0x7C,
     0xE1, 0xF7, 0xB8};
 
-static void send_cb(
-    const esp_now_send_info_t *tx_info,
-    esp_now_send_status_t status)
-{
-    if (tx_info == NULL)
-    {
+static void send_cb(const esp_now_send_info_t *tx_info, esp_now_send_status_t status){
+    if (tx_info == NULL){
         ESP_LOGE(TAG_SENDER, "Send callback error: tx_info is NULL");
         return;
     }
@@ -86,30 +96,19 @@ static void recv_cb(
     message_t msg;
     memcpy(&msg, data, sizeof(msg));
 
-    switch (msg.cmd)
-    {
-    case CMD_SET_POSITION:
-    {
-
+    switch (msg.cmd){
+    case CMD_SET_POSITION:{
         target_x = msg.x;
         target_y = msg.y;
 
-        ESP_LOGI(TAG_RECEIVER,
-                 "SET_POSITION id=%ld X=%ld Y=%ld",
-                 msg.id,
-                 msg.x,
-                 msg.y);
+        ESP_LOGI(TAG_RECEIVER, "SET_POSITION id=%ld X=%ld Y=%ld", msg.id, msg.x, msg.y);
 
-        message_t response =
-            {
+        message_t response ={
                 .id = msg.id,
                 .cmd = CMD_ACK_POSITION,
             };
 
-        esp_now_send(info->src_addr,
-                     (uint8_t *)&response,
-                     sizeof(response));
-
+        esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
         break;
     }
     case CMD_GET_POSITION:
@@ -127,8 +126,33 @@ static void recv_cb(
 
         break;
     }
-    case CMD_SET_MOVE_BY:
-    {
+    
+    case CMD_SET_MOVE_TO:{
+        target_x = msg.x;
+        target_y = msg.y;
+
+        ESP_LOGI(TAG_RECEIVER, "SET_POSITION id=%ld X=%ld Y=%ld", msg.id, msg.x, msg.y);
+
+        message_t response ={
+                .id = msg.id,
+                .cmd = CMD_ACK_POSITION,
+            };
+        
+        esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
+        motor_send_command(MOVE_TO, msg.x, msg.y);
+        break;
+    }
+
+    case CMD_SET_MOVE_BY:{
+        ESP_LOGI(TAG_RECEIVER, "MOVE_BY id=%ld X=%ld Y=%ld", msg.id, msg.x, msg.y);
+
+        message_t response ={
+                .id = msg.id,
+                .cmd = CMD_ACK_POSITION,
+            };
+        esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
+
+        motor_send_command(MOVE_BY, msg.x, msg.y);
         break;
     }
     }
