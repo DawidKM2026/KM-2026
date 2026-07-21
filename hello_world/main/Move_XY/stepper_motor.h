@@ -122,8 +122,8 @@ void motor_set_direction(
 //Bazowanie platformy
 bool motor_homing(void);
 
+//Aktualizacja aktualnej pozycji
+void update_current_position(void);
+
 //Obsługa przycisku silników
 void motor_button_on_off(void);
-
-//Obsługa krańcówek
-void motor_limit_switch_x(void);

@@ -67,6 +67,8 @@ static volatile bool stop_request = false;
 
 //Pozycja w impulsach enkodera
 extern int32_t current_x;
+extern int32_t current_x1;
+extern int32_t current_x2;
 extern int32_t current_y;
 
 //Limity pozycji w milimetrach
@@ -139,7 +141,7 @@ static int32_t get_move_direction(
     return 0;
 }
 
-//Mapowanie kierunku X1
+//Mapowanie kierunku X1 (-1/1 -> false/true)
 static bool get_x1_motor_direction(
     int32_t logical_direction)
 {
@@ -160,7 +162,7 @@ static bool get_y_motor_direction(
     return logical_direction > 0 ? false : true;
 }
 
-//Uruchomienie timera silnika
+//Uruchomienie timera silnika do odliczania impulsów
 static esp_err_t motor_timer_start(
     motor_id_t motor_id)
 {
@@ -218,7 +220,7 @@ static esp_err_t motor_timer_stop(
     return error;
 }
 
-//Callback timera ruchu
+//Callback timera ruchu (wywoływane przy każdym alarmie [zmianie kroku 0->1 / 1->0])
 static bool IRAM_ATTR step_timer_callback(
     gptimer_handle_t timer,
     const gptimer_alarm_event_data_t *event_data,
@@ -327,25 +329,25 @@ static void motor_stop_all(void)
     motor_stop(MOTOR_SURGE_1);
     motor_stop(MOTOR_SURGE_2);
     motor_stop(MOTOR_SWAY);
-
-    motor_x1_running = false;
-    motor_x2_running = false;
-    motor_y_running = false;
 }
 
 //Ustawienie prędkości silnika
-void motor_set_speed(
+static esp_err_t motor_set_speed(
     motor_id_t motor_id,
     uint32_t motor_rpm)
 {
     if (motor_id >= MOTOR_COUNT) {
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     if (motor_rpm == 0) {
         motor_stop(motor_id);
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
+    
+    if (!enabled || stop_request) {
+            return ESP_ERR_INVALID_STATE;
+        }
 
     uint64_t denominator =
         2ULL *
@@ -373,6 +375,10 @@ void motor_set_speed(
         .flags.auto_reload_on_alarm = true
     };
 
+    if (motors[motor_id].timer == NULL){
+        return ESP_ERR_INVALID_STATE;
+    }
+
     esp_err_t error = gptimer_set_alarm_action(
         motors[motor_id].timer,
         &alarm_config);
@@ -382,33 +388,37 @@ void motor_set_speed(
             "Blad predkosci silnika %d: %s\n",
             motor_id,
             esp_err_to_name(error));
-        return;
+        return error;
     }
 
     gpio_set_level(motors[motor_id].enable_pin, 0);
+    return ESP_OK;
 }
 
-//Uruchomienie silnika bez blokującej rampy
-void motor_start(
+//Uruchomienie silnika
+esp_err_t motor_start(
     motor_id_t motor_id,
     bool direction,
     uint32_t target_rpm)
 {
     if (motor_id >= MOTOR_COUNT || target_rpm == 0) {
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     motor_set_direction(motor_id, direction);
-    motor_set_speed(motor_id, target_rpm);
+    esp_err_t error = motor_set_speed(motor_id, target_rpm);
 
-    esp_err_t error = motor_timer_start(motor_id);
-
+    
     if (error != ESP_OK) {
-        printf(
-            "Blad startu silnika %d: %s\n",
-            motor_id,
-            esp_err_to_name(error));
+        return error;
     }
+        
+    if (!enabled || stop_request) {
+            return ESP_ERR_INVALID_STATE;
+        }
+
+
+    return motor_timer_start(motor_id);
 }
 
 //Wysłanie komendy ruchu
@@ -417,6 +427,9 @@ void motor_send_command(
     int32_t x,
     int32_t y)
 {
+    if (!enabled || stop_request) {
+        return;
+    }
     if (motor_command_queue == NULL) {
         printf("Kolejka silnikow nie jest gotowa\n");
         return;
@@ -489,7 +502,7 @@ void init_stepper_motor_timers(void)
     }
 }
 
-//Przygotowanie silników do Bresenhama
+//Przygotowanie silników do Bresenhama (wyłączenie wszystkich silników)
 static void prepare_motors_for_bresenham(void)
 {
     motor_timer_stop(MOTOR_SURGE_1);
@@ -499,10 +512,6 @@ static void prepare_motors_for_bresenham(void)
     gpio_set_level(STEP_X_1_PIN, 0);
     gpio_set_level(STEP_X_2_PIN, 0);
     gpio_set_level(STEP_Y_PIN, 0);
-
-    motor_x1_running = false;
-    motor_x2_running = false;
-    motor_y_running = false;
 }
 
 //Włączenie potrzebnych sterowników
@@ -656,7 +665,7 @@ static void generate_step_pulse(
 }
 
 //Aktualizacja bieżącej pozycji
-static void update_current_position(void)
+void update_current_position(void)
 {
     int32_t encoder_x1 =
         motor_encoder_get_count(ENCODER_X_1);
@@ -664,18 +673,31 @@ static void update_current_position(void)
     int32_t encoder_x2 =
         motor_encoder_get_count(ENCODER_X_2);
 
+    current_x1 = encoder_x1;
+    current_x2 = encoder_x2;
     current_x = (int32_t)(
         ((int64_t)encoder_x1 + encoder_x2) / 2);
+    
 
     current_y =
         motor_encoder_get_count(ENCODER_Y);
 }
 
 //Ruch do pozycji algorytmem Bresenhama
-void motor_move_to(
+esp_err_t motor_move_to(
     int32_t x_mm,
     int32_t y_mm)
 {
+    if (!enabled || stop_request) {
+            return ESP_ERR_INVALID_STATE;
+        }
+    
+    uint8_t correction_attempt = 0;
+
+    repeat_move:
+
+
+    //Ograniczanie pola pracy
     x_mm = clamp_position(
         x_mm,
         min_x_limit,
@@ -686,6 +708,7 @@ void motor_move_to(
         min_y_limit,
         max_y_limit);
 
+    //Punkt startowy
     int32_t start_x1 =
         motor_encoder_get_count(ENCODER_X_1);
 
@@ -709,7 +732,7 @@ void motor_move_to(
         target_y_64 > INT32_MAX ||
         target_y_64 < INT32_MIN) {
         printf("Cel ruchu jest poza zakresem\n");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     int32_t target_x = (int32_t)target_x_64;
@@ -733,7 +756,7 @@ void motor_move_to(
     if (absolute_x <= POSITION_TOLERANCE_COUNTS &&
         absolute_y <= POSITION_TOLERANCE_COUNTS) {
         update_current_position();
-        return;
+        return ESP_OK;
     }
 
     int32_t steps_x = encoder_counts_to_motor_steps(
@@ -748,6 +771,7 @@ void motor_move_to(
     int32_t signed_steps_y =
         direction_y < 0 ? -steps_y : steps_y;
 
+    //Wyłączenie silników    
     prepare_motors_for_bresenham();
 
     if (direction_x != 0) {
@@ -791,6 +815,7 @@ void motor_move_to(
             break;
         }
 
+        //Zaczytaj aktualną pozycję silników
         int32_t encoder_x1 =
             motor_encoder_get_count(ENCODER_X_1);
 
@@ -800,6 +825,7 @@ void motor_move_to(
         int32_t encoder_y =
             motor_encoder_get_count(ENCODER_Y);
 
+        //O ile udało się przesunąć
         int32_t progress_x1 =
             direction_x * (encoder_x1 - start_x1);
 
@@ -820,6 +846,7 @@ void motor_move_to(
             break;
         }
 
+        //Sprawdzenie czy silniki są wystarczająco blisko celu (w granicach tolerancji)
         bool x1_finished = encoder_target_reached(
             encoder_x1,
             target_x,
@@ -835,6 +862,7 @@ void motor_move_to(
             target_y,
             direction_y);
 
+        //Jeśli jest okej to zakończ ruch
         if (x1_finished && x2_finished && y_finished) {
             break;
         }
@@ -876,6 +904,36 @@ void motor_move_to(
     stop_bresenham_motion();
     update_current_position();
 
+    if(movement_error){
+        return ESP_FAIL;
+    }
+
+    //Liczenie uchybu
+    int32_t error_x1 = target_x - current_x1;
+    int32_t error_x2 = target_x - current_x2;
+    int32_t error_y = target_y - current_y;
+
+
+    //Sprawdzenie strefy martwej
+    if (abs(error_x1) > POSITION_TOLERANCE_COUNTS || abs(error_x2) > POSITION_TOLERANCE_COUNTS || abs(error_y) > POSITION_TOLERANCE_COUNTS){
+        correction_attempt++;
+
+        printf(
+            "Korekta pozycji %d: EX1=%" PRId32 
+            " EX2=%" PRId32
+            " EY=%" PRId32 "\n",
+            correction_attempt,
+            error_x1,
+            error_x2,
+            error_y);
+
+        if (correction_attempt < 3)
+        {
+            goto repeat_move;
+        }
+    }
+
+    //Finalna pozcyja każdego silnika
     int32_t final_x1 =
         motor_encoder_get_count(ENCODER_X_1);
 
@@ -902,13 +960,39 @@ void motor_move_to(
             final_x2,
             final_y);
     }
+    return ESP_OK;
 }
 
 //Ruch ręczny joystickiem
-void motor_move_by(
+esp_err_t motor_move_by(
     int32_t wychylenie_x,
     int32_t wychylenie_y)
 {
+    
+    if (!enabled || stop_request) {
+            return ESP_ERR_INVALID_STATE;
+        }
+    update_current_position();
+
+    int32_t current_x_mm =
+        current_x / ENCODER_COUNTS_PER_MM;
+
+    int32_t current_y_mm =
+        current_y / ENCODER_COUNTS_PER_MM;
+
+    if (wychylenie_x > 0 && current_x_mm >= max_x_limit){
+        wychylenie_x = 0;
+    }
+    if (wychylenie_x < 0 && current_x_mm <= min_x_limit){
+        wychylenie_x = 0;
+    }
+    if (wychylenie_y > 0 && current_y_mm >= max_y_limit){
+        wychylenie_y = 0;
+    }
+    if (wychylenie_y < 0 && current_y_mm <= min_y_limit){
+        wychylenie_y = 0;
+    }
+
     wychylenie_x = clamp_position(
         wychylenie_x,
         -100,
@@ -960,14 +1044,22 @@ void motor_move_by(
 
         motor_start(MOTOR_SWAY, direction, rpm);
     }
+    return ESP_OK;
 }
 
 //Bazowanie platformy
 bool motor_homing(void)
 {
-    motor_start(MOTOR_SURGE_1, 1, 15);
-    motor_start(MOTOR_SURGE_2, 1, 15);
-    motor_start(MOTOR_SWAY, 1, 15);
+    if(gpio_get_level(LIMIT_SWITCH_X_1_PIN)){
+        motor_start(MOTOR_SURGE_1, 1, 15);
+    }
+    if(gpio_get_level(LIMIT_SWITCH_X_2_PIN)){
+        motor_start(MOTOR_SURGE_2, 1, 15);
+    }
+    if(gpio_get_level(LIMIT_SWITCH_Y_PIN)){
+        motor_start(MOTOR_SWAY, 1, 15);
+    }
+    
 
     TickType_t start = xTaskGetTickCount();
 
@@ -1010,13 +1102,20 @@ bool motor_homing(void)
 
     vTaskDelay(pdMS_TO_TICKS(1000));
 
+    esp_err_t err =
     motor_move_to(max_x_limit, max_y_limit);
+
+    if (err != ESP_OK){
+        return false;
+    }
 
     motor_encoder_reset_position(ENCODER_X_1);
     motor_encoder_reset_position(ENCODER_X_2);
     motor_encoder_reset_position(ENCODER_Y);
 
     current_x = 0;
+    current_x1 = 0;
+    current_x2 = 0;
     current_y = 0;
 
     return true;
@@ -1049,29 +1148,4 @@ void motor_button_on_off(void)
     }
 
     last_state = state;
-}
-
-//Obsługa krańcówek
-void motor_limit_switch_x(void)
-{
-    bool state_x1 =
-        gpio_get_level(LIMIT_SWITCH_X_1_PIN);
-
-    bool state_x2 =
-        gpio_get_level(LIMIT_SWITCH_X_2_PIN);
-
-    bool state_y =
-        gpio_get_level(LIMIT_SWITCH_Y_PIN);
-
-    if (state_x1 == 0) {
-        motor_stop(MOTOR_SURGE_1);
-    }
-
-    if (state_x2 == 0) {
-        motor_stop(MOTOR_SURGE_2);
-    }
-
-    if (state_y == 0) {
-        motor_stop(MOTOR_SWAY);
-    }
 }

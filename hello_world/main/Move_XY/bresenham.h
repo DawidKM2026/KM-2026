@@ -4,15 +4,15 @@
 #include <stdint.h>
 
 typedef struct {
-    int32_t x;
+    int32_t x; //Aktualna pozycja, przyjmowana zawsze jako zero
     int32_t y;
-    int32_t target_x;
+    int32_t target_x; //Docelowa liczba kroków
     int32_t target_y;
-    int32_t dx;
+    int32_t dx; //Bezwględna liczba  (wartość bezwględna targetu)
     int32_t dy;
-    int32_t sx;
+    int32_t sx; //Kierunki ruchu
     int32_t sy;
-    int32_t error;
+    int32_t error; //Odchylenie od idealnej lini, po której chcemy, żeby układ się poruszał
     bool finished;
 } bresenham_t;
 

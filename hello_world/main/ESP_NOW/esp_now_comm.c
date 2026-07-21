@@ -10,7 +10,6 @@
 
 #include "driver/gpio.h"
 #include "gpio_config.h"
-
 #include "stepper_motor.h"
 
 
@@ -19,7 +18,10 @@
 int32_t target_x;
 int32_t target_y;
 
-int32_t current_x = 5;
+int32_t current_x1 = 5;
+int32_t current_x2 = 5;
+int32_t current_x = (current_x1+current_x2)/2;
+
 int32_t current_y = 8;
 
 
@@ -97,7 +99,7 @@ static void recv_cb(
     memcpy(&msg, data, sizeof(msg));
 
     switch (msg.cmd){
-    case CMD_SET_POSITION:{
+    /* case CMD_SET_POSITION:{
         target_x = msg.x;
         target_y = msg.y;
 
@@ -110,9 +112,11 @@ static void recv_cb(
 
         esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
         break;
-    }
+    } */
     case CMD_GET_POSITION:
     {
+        motor_update_position();
+        
         message_t response =
             {
                 .id = msg.id,

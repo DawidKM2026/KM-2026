@@ -1,9 +1,27 @@
 idf_component_register(
-    SRCS "encoders.c" "spherical_parallel_manipulator.c" "main_app.c" "esp_now_comm.c" "config_wifi.c" "over_the_air_updates.c" "gpio_config.c" "stepper_motor.c"
-    INCLUDE_DIRS "."
+    SRCS 
+    "Move_XY/encoders.c"
+    "SPM/spherical_parallel_manipulator.c" 
+    "main_app.c" 
+    "ESP_NOW/esp_now_comm.c" 
+    "OTA/config_wifi.c" 
+    "OTA/over_the_air_updates.c" 
+    "GPIO/gpio_config.c" 
+    "Move_XY/stepper_motor.c" 
+    "Move_XY/bresenham.c"
+    
+    
+    INCLUDE_DIRS
+            "."
+            "Move_XY"
+            "SPM"
+            "ESP_NOW"
+            "OTA"
+            "GPIO"
+
 
     EMBED_TXTFILES
-        "index.html"
+        "OTA/index.html"
 
     PRIV_REQUIRES
         spi_flash
