@@ -90,17 +90,17 @@ void motor_send_command(
     int32_t y);
 
 //Ruch do pozycji w milimetrach
-void motor_move_to(
+esp_err_t motor_move_to(
     int32_t x_mm,
     int32_t y_mm);
 
 //Ruch ręczny joystickiem
-void motor_move_by(
+esp_err_t motor_move_by(
     int32_t wychylenie_x,
     int32_t wychylenie_y);
 
 //Uruchomienie silnika
-void motor_start(
+esp_err_t motor_start(
     motor_id_t motor_id,
     bool direction,
     uint32_t target_rpm);
@@ -108,12 +108,7 @@ void motor_start(
 //Zatrzymanie silnika
 void motor_stop(
     motor_id_t motor_id);
-
-//Ustawienie prędkości silnika
-void motor_set_speed(
-    motor_id_t motor_id,
-    uint32_t motor_rpm);
-
+    
 //Ustawienie kierunku silnika
 void motor_set_direction(
     motor_id_t motor_id,

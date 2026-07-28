@@ -1,6 +1,0 @@
-#ifndef SPHERICAL_PARALLEL_MANIPULATOR_H
-#define SPHERICAL_PARALLEL_MANIPULATOR_H
-
-void spm_init(void);
-
-#endif

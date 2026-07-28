@@ -1,7 +1,9 @@
 #include "esp_now_comm.h"
 
+#include <inttypes.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "esp_log.h"
 #include "esp_now.h"
@@ -20,16 +22,16 @@ int32_t target_y;
 
 int32_t current_x1 = 5;
 int32_t current_x2 = 5;
-int32_t current_x = (current_x1+current_x2)/2;
+int32_t current_x = 5;
 
 int32_t current_y = 8;
 
 
 //Fizyczne wymiary pola, na którym porusza się makieta statku
 int max_x_limit=100; 
-int min_x_limit=100;
+int min_x_limit=-100;
 int max_y_limit=100;
-int min_y_limit=100;
+int min_y_limit=-100;
 
 
 //Komendy
@@ -59,8 +61,8 @@ static const char *TAG_SENDER = "SENDER";
 
 
 static uint8_t receiver_mac[] = {
-    0x24, 0x58, 0x7C,
-    0xE1, 0xF7, 0xB8};
+    0x7C, 0xDF, 0xA1,
+    0xE4, 0x00, 0x68};
 
 static void send_cb(const esp_now_send_info_t *tx_info, esp_now_send_status_t status){
     if (tx_info == NULL){
@@ -99,66 +101,72 @@ static void recv_cb(
     memcpy(&msg, data, sizeof(msg));
 
     switch (msg.cmd){
-    /* case CMD_SET_POSITION:{
-        target_x = msg.x;
-        target_y = msg.y;
+        default:
+            break;
+        case CMD_SET_FIELD_DIMENSIONS:{
+            max_x_limit = msg.x/2;
+            min_x_limit = -msg.x/2;
+            max_y_limit = msg.y/2;
+            min_y_limit = -msg.y/2;
+            break;
+        }
+        case CMD_GET_POSITION:{
+            update_current_position();
 
-        ESP_LOGI(TAG_RECEIVER, "SET_POSITION id=%ld X=%ld Y=%ld", msg.id, msg.x, msg.y);
+            message_t response ={
+                    .id = msg.id,
+                    .cmd = CMD_POSITION_RESPONSE,
+                    .x = current_x,
+                    .y = current_y};
 
-        message_t response ={
-                .id = msg.id,
-                .cmd = CMD_ACK_POSITION,
-            };
-
-        esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
-        break;
-    } */
-    case CMD_GET_POSITION:
-    {
-        motor_update_position();
+            printf("Pozycja do wysłania: X=%" PRId32 " Y=%" PRId32 "\n", current_x, current_y);
+            esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
+            break;
+        }
         
-        message_t response =
-            {
-                .id = msg.id,
-                .cmd = CMD_POSITION_RESPONSE,
-                .x = current_x,
-                .y = current_y};
+        case CMD_SET_MOVE_TO:{
+            
+            target_x = msg.x;
+            target_y = msg.y;
+            if(msg.x < min_x_limit){
+                msg.x = min_x_limit;
+            }
+            if(msg.x > max_x_limit){
+                msg.x = max_x_limit;
+            }
+            if(msg.y < min_y_limit){
+                msg.y = min_y_limit;
+            }
+            if(msg.y > max_y_limit){
+                msg.y = max_y_limit;
+            }
 
-        esp_now_send(info->src_addr,
-                     (uint8_t *)&response,
-                     sizeof(response));
+            ESP_LOGI(TAG_RECEIVER, "SET_POSITION id=%" PRIu32 " X=%" PRId32 " Y=%" PRId32, msg.id, msg.x, msg.y);
 
-        break;
-    }
-    
-    case CMD_SET_MOVE_TO:{
-        target_x = msg.x;
-        target_y = msg.y;
+            message_t response ={
+                    .id = msg.id,
+                    .cmd = CMD_ACK_POSITION,
+                };
+            
+            esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
+            printf("Pozycja otrzymana do osiągnięcia: X=%" PRId32 " Y=%" PRId32 "\n", msg.x, msg.y);
+            motor_send_command(MOVE_TO, msg.x, msg.y);
+            break;
+        }
 
-        ESP_LOGI(TAG_RECEIVER, "SET_POSITION id=%ld X=%ld Y=%ld", msg.id, msg.x, msg.y);
+        case CMD_SET_MOVE_BY:{
+            
+            ESP_LOGI(TAG_RECEIVER, "MOVE_BY id=%" PRIu32 " X=%" PRId32 " Y=%" PRId32, msg.id, msg.x, msg.y);
 
-        message_t response ={
-                .id = msg.id,
-                .cmd = CMD_ACK_POSITION,
-            };
-        
-        esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
-        motor_send_command(MOVE_TO, msg.x, msg.y);
-        break;
-    }
-
-    case CMD_SET_MOVE_BY:{
-        ESP_LOGI(TAG_RECEIVER, "MOVE_BY id=%ld X=%ld Y=%ld", msg.id, msg.x, msg.y);
-
-        message_t response ={
-                .id = msg.id,
-                .cmd = CMD_ACK_POSITION,
-            };
-        esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
-
-        motor_send_command(MOVE_BY, msg.x, msg.y);
-        break;
-    }
+            message_t response ={
+                    .id = msg.id,
+                    .cmd = CMD_ACK_POSITION,
+                };
+            printf("Wychylenie otrzymane: X=%" PRId32 " Y=%" PRId32 "\n", msg.x, msg.y);
+            esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
+            motor_send_command(MOVE_BY, msg.x, msg.y);
+            break;
+        }
     }
 }
 

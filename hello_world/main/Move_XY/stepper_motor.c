@@ -19,6 +19,10 @@
 #include "stepper_motor.h"
 #include "bresenham.h"
 
+
+//Pokazywanie logów do debugowania
+bool debugMode = false;
+
 //Parametry mechaniczne
 #define TIMER_RESOLUTION_HZ            1000000U
 #define MOTOR_FULL_STEPS_PER_REV       200U
@@ -35,6 +39,8 @@
 #define STEP_PULSE_HIGH_US             5U
 #define MANUAL_MAX_RPM                 45U
 #define MANUAL_DEAD_ZONE               5
+#define MANUAL_COMMAND_TIMEOUT_MS 1500U //Timeout na sygnał z joystick'a
+static TickType_t last_manual_command_tick = 0;
 
 //Komenda silników
 typedef struct {
@@ -61,8 +67,10 @@ static QueueHandle_t motor_command_queue = NULL;
 static TaskHandle_t motor_task_handle = NULL;
 
 //Stan przycisku
-static bool enabled = false;
 static bool last_state = true;
+// Zezwolenie na pracę napędów
+static volatile bool enabled = false;
+// Żądanie natychmiastowego zatrzymania ruchu
 static volatile bool stop_request = false;
 
 //Pozycja w impulsach enkodera
@@ -83,7 +91,7 @@ static motor_t motors[MOTOR_COUNT] = {
         .timer = NULL,
         .step_pin = STEP_X_1_PIN,
         .dir_pin = DIR_X_1_PIN,
-        .enable_pin = EN_X_1_PIN,
+        .enable_pin = EN_X_PIN,
         .step_state = false,
         .timer_running = false,
         .direction_inverted = false
@@ -92,7 +100,7 @@ static motor_t motors[MOTOR_COUNT] = {
         .timer = NULL,
         .step_pin = STEP_X_2_PIN,
         .dir_pin = DIR_X_2_PIN,
-        .enable_pin = EN_X_2_PIN,
+        .enable_pin = EN_X_PIN,
         .step_state = false,
         .timer_running = false,
         .direction_inverted = true
@@ -406,8 +414,13 @@ esp_err_t motor_start(
     }
 
     motor_set_direction(motor_id, direction);
+    if(debugMode==true){
+        printf("Kierunek ustawiony");
+    }
     esp_err_t error = motor_set_speed(motor_id, target_rpm);
-
+    if(debugMode==true){
+        printf("Prędkość ustawiona");
+    }
     
     if (error != ESP_OK) {
         return error;
@@ -416,7 +429,6 @@ esp_err_t motor_start(
     if (!enabled || stop_request) {
             return ESP_ERR_INVALID_STATE;
         }
-
 
     return motor_timer_start(motor_id);
 }
@@ -427,6 +439,7 @@ void motor_send_command(
     int32_t x,
     int32_t y)
 {
+    printf("Polecenie wystawione \n");
     if (!enabled || stop_request) {
         return;
     }
@@ -440,8 +453,14 @@ void motor_send_command(
         .x = x,
         .y = y
     };
-
+    if(debugMode==true){
+        printf("Przed komendą do kolejki\n");
+    }
+    
     xQueueOverwrite(motor_command_queue, &command);
+    if(debugMode==true){
+        printf("Po komendzie do kolejki\n");
+    }
 }
 
 //Wątek komend silnika
@@ -463,7 +482,14 @@ static void motor_task(void *parameters)
                 break;
 
             case MOVE_BY:
+                if(debugMode==true){
+                    printf("Przed przemieszczeniem move_by\n");    
+                }
                 motor_move_by(command.x, command.y);
+                if(debugMode==true){
+                    printf("Po przemieszczeniu move_by\n");
+                }
+                
                 break;
 
             default:
@@ -520,8 +546,7 @@ static void enable_bresenham_drivers(
     bool use_y)
 {
     if (use_x) {
-        gpio_set_level(EN_X_1_PIN, 0);
-        gpio_set_level(EN_X_2_PIN, 0);
+        gpio_set_level(EN_X_PIN, 0);
     }
 
     if (use_y) {
@@ -536,8 +561,7 @@ static void stop_bresenham_motion(void)
     gpio_set_level(STEP_X_2_PIN, 0);
     gpio_set_level(STEP_Y_PIN, 0);
 
-    gpio_set_level(EN_X_1_PIN, 1);
-    gpio_set_level(EN_X_2_PIN, 1);
+    gpio_set_level(EN_X_PIN, 1);
     gpio_set_level(EN_Y_PIN, 1);
 }
 
@@ -815,7 +839,7 @@ esp_err_t motor_move_to(
             break;
         }
 
-        //Zaczytaj aktualną pozycję silników
+        //Odczytaj aktualną pozycję silników
         int32_t encoder_x1 =
             motor_encoder_get_count(ENCODER_X_1);
 
@@ -899,6 +923,7 @@ esp_err_t motor_move_to(
             step_x2,
             step_y,
             step_period_us);
+            vTaskDelay(1);
     }
 
     stop_bresenham_motion();
@@ -972,6 +997,9 @@ esp_err_t motor_move_by(
     if (!enabled || stop_request) {
             return ESP_ERR_INVALID_STATE;
         }
+
+    last_manual_command_tick = xTaskGetTickCount();
+
     update_current_position();
 
     int32_t current_x_mm =
@@ -1011,6 +1039,10 @@ esp_err_t motor_move_by(
         wychylenie_y = 0;
     }
 
+    if(debugMode==true){
+        printf("Sprawdzam wychylenie x \n");
+    }
+    
     if (wychylenie_x == 0) {
         motor_stop(MOTOR_SURGE_1);
         motor_stop(MOTOR_SURGE_2);
@@ -1024,11 +1056,14 @@ esp_err_t motor_move_by(
         }
 
         bool direction = wychylenie_x > 0;
-
+ 
+        printf("Start silnika x\n");
+        printf("RPM = %" PRIu32 "\n", rpm);
         motor_start(MOTOR_SURGE_1, direction, rpm);
         motor_start(MOTOR_SURGE_2, direction, rpm);
     }
 
+    printf("Sprawdzam wychylenie y \n");
     if (wychylenie_y == 0) {
         motor_stop(MOTOR_SWAY);
     } else {
@@ -1042,14 +1077,20 @@ esp_err_t motor_move_by(
 
         bool direction = wychylenie_y > 0;
 
+        printf("Start silnika y\n");
+        printf("RPM = %" PRIu32 "\n", rpm);
         motor_start(MOTOR_SWAY, direction, rpm);
     }
     return ESP_OK;
 }
 
+
 //Bazowanie platformy
 bool motor_homing(void)
 {
+    
+    enabled = true;
+    stop_request = false;
     if(gpio_get_level(LIMIT_SWITCH_X_1_PIN)){
         motor_start(MOTOR_SURGE_1, 1, 15);
     }
@@ -1071,11 +1112,15 @@ bool motor_homing(void)
         if ((xTaskGetTickCount() - start) >=
             pdMS_TO_TICKS(20000)) {
             motor_stop_all();
+            enabled = false;
+            stop_request = false;
             return false;
         }
 
         if (stop_request) {
             motor_stop_all();
+            enabled = false;
+            stop_request = false;
             return false;
         }
 
@@ -1106,6 +1151,8 @@ bool motor_homing(void)
     motor_move_to(max_x_limit, max_y_limit);
 
     if (err != ESP_OK){
+        enabled = false;
+        stop_request = false;
         return false;
     }
 
@@ -1117,6 +1164,9 @@ bool motor_homing(void)
     current_x1 = 0;
     current_x2 = 0;
     current_y = 0;
+    motor_stop_all();
+    enabled = false;
+    stop_request = false;
 
     return true;
 }
@@ -1131,9 +1181,12 @@ void motor_button_on_off(void)
 
         if (enabled) {
             stop_request = false;
-            gpio_set_level(EN_X_1_PIN, 0);
-            gpio_set_level(EN_X_2_PIN, 0);
+            gpio_set_level(EN_X_PIN, 0);
             gpio_set_level(EN_Y_PIN, 0);
+            /* 
+        motor_start(MOTOR_SURGE_1, 1, 10);
+        motor_start(MOTOR_SURGE_2, 1, 10);
+        motor_start(MOTOR_SWAY, 1, 10); */
             printf("Silniki ON\n");
         } else {
             stop_request = true;
@@ -1148,4 +1201,26 @@ void motor_button_on_off(void)
     }
 
     last_state = state;
+}
+
+//Zatrzymanie grzybkiem
+void motor_emergency_stop(void)
+{
+    stop_request = true;
+    enabled = false;
+
+    if (motor_command_queue != NULL) {
+        xQueueReset(motor_command_queue);
+    }
+
+    motor_stop_all();
+
+    printf("EMERGENCY STOP!\n");
+}
+void check_emergency_stop(void)
+{
+    if (gpio_get_level(EMERGENCY_STOP_PIN) == 0)
+    {
+        motor_emergency_stop();
+    }
 }

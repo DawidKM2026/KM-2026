@@ -16,6 +16,8 @@
 #include "stepper_motor.h"
 #include "encoders.h"
 
+#include "esp_rom_sys.h"
+
 
 void app_main(void)
 {
@@ -67,13 +69,23 @@ void app_main(void)
     init_stepper_motor_timers();
 
     //Bazowanie
+    /* 
     bool homing_done = motor_homing();
-    printf("Bazowanie zakonczone: %d\n", homing_done);
-
+    printf("Bazowanie zakonczone: %d\n", homing_done); */
+    /* gpio_set_level(EN_Y_PIN,0);
+    gpio_set_level(DIR_Y_PIN,1); */
     while (1)
     {
         //Obsługa przycisku na ESP 32 S3 PICO
         motor_button_on_off();
+        /* gpio_set_level(STEP_Y_PIN, 1);
+        esp_rom_delay_us(500); */
+/* 
+        gpio_set_level(STEP_Y_PIN, 0);
+        esp_rom_delay_us(500); */
+
+        //Zatrzymanie grzybkiem
+ /*        check_emergency_stop(); */
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }

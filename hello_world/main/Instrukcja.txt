@@ -1,0 +1,6 @@
+Kontroler:
+ - steruje ruchem platfromy XY (Move_XY)
+ - steruje nachyleniem oraz obrotem modelu statku (SPM)
+ - wysyła przez UART polecenia do Arduino, które steruje thrusterami wewnątrz statku oraz odbiera dane z żyroskopu i akcelerometru
+ - obsługi Over The Air Updates, czyli wgrywanie updateów soft'a przez stronę WWW
+ - automatycznie łączy się do Access Point'a postawionego na ESP, które jest połączone z serwerem i CJOY'em

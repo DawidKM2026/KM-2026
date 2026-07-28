@@ -1,0 +1,18 @@
+site_name: Dynamic Positioning Platform
+
+theme:  
+  name: material
+  logo: images/ship.png
+  favicon: images/ship.png
+  
+  palette:
+    primary: cyan
+    accent: cyan
+
+nav:
+  - Overview: index.md
+  - User guide: user_guide.md
+  - Hardware: hardware.md
+  - Software: software.md
+  - 3D Modeling: 3d_modeling.md
+  - Licenses: licenses.md

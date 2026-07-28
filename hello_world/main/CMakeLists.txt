@@ -1,7 +1,6 @@
 idf_component_register(
     SRCS 
     "Move_XY/encoders.c"
-    "SPM/spherical_parallel_manipulator.c" 
     "main_app.c" 
     "ESP_NOW/esp_now_comm.c" 
     "OTA/config_wifi.c" 
