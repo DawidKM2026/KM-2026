@@ -14,4 +14,10 @@ bool spm_motors_move_steps(
 
 void spm_motors_stop(void);
 
+bool spm_motors_move_rpy(
+    float roll_deg,
+    float pitch_deg,
+    float yaw_deg,
+    float speed_rps);
+
 #endif

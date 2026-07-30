@@ -13,12 +13,26 @@
 
 #include "gpio_config.h"
 
+#include "spm_ik.h"
+
 #define SPM_STEP_PULSE_US      5U
 #define SPM_STEP_PERIOD_US     500U
 #define MOTOR_FULL_STEPS_PER_REV 200U
 #define MOTOR_MICROSTEPS         16U
 #define STEP_PULSE_US            5U
 
+static int32_t degrees_to_steps(
+    float degrees)
+{
+    float steps_per_rev =
+        MOTOR_FULL_STEPS_PER_REV *
+        MOTOR_MICROSTEPS;
+
+    return (int32_t)(
+        degrees *
+        steps_per_rev /
+        360.0f);
+}
 
 //Struktura komend dla silników SPM
 typedef struct
@@ -53,17 +67,16 @@ static uint32_t calculate_step_period_us(float speed_rps){
 }
 
 //Załączanie sterowników dla wszystkich silników (trzymają wtedy moment i można nimi sterować)
-static void spm_enable_all(void){
-    gpio_set_level(SPM_EN_1_PIN, 1);
-    gpio_set_level(SPM_EN_2_PIN, 1);
-    gpio_set_level(SPM_EN_3_PIN, 1);
+static void spm_enable_all(void)
+{
+    gpio_set_level(SPM_EN_PIN, 1);
 }
 
+
 //Wyłączanie sterowników dla wszystkich silników (można swobodnie obracać wał)
-static void spm_disable_all(void){
-    gpio_set_level(SPM_EN_1_PIN, 0);
-    gpio_set_level(SPM_EN_2_PIN, 0);
-    gpio_set_level(SPM_EN_3_PIN, 0);
+static void spm_disable_all(void)
+{
+    gpio_set_level(SPM_EN_PIN, 0);
 }
 
 static void generate_step(gpio_num_t step_pin){
@@ -238,4 +251,40 @@ void spm_motors_stop(void)
         SPM_STEP_3_PIN, 0);
 
     spm_disable_all();
+}
+
+bool spm_motors_move_rpy(
+    float roll_deg,
+    float pitch_deg,
+    float yaw_deg,
+    float speed_rps)
+{
+    spm_angles_t angles;
+
+    if (!spm_calculate_ik(
+            roll_deg,
+            pitch_deg,
+            yaw_deg,
+            &angles))
+    {
+        return false;
+    }
+
+    int32_t motor1_steps =
+        degrees_to_steps(
+            angles.theta1_deg);
+
+    int32_t motor2_steps =
+        degrees_to_steps(
+            angles.theta2_deg);
+
+    int32_t motor3_steps =
+        degrees_to_steps(
+            angles.theta3_deg);
+
+    return spm_motors_move_steps(
+        motor1_steps,
+        motor2_steps,
+        motor3_steps,
+        speed_rps);
 }

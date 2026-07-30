@@ -39,8 +39,8 @@ typedef enum
 {
     CMD_SET_FIELD_DIMENSIONS = 1,
     CMD_GET_POSITION = 2,
-    CMD_SET_MOVE_TO=3,
-    CMD_SET_MOVE_BY=4,
+    CMD_SET_MOVE_TO = 3,
+    CMD_SET_MOVE_BY = 4,
     CMD_POSITION_RESPONSE = 5,
     CMD_ACK_POSITION = 6
 } command_t;
