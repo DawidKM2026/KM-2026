@@ -50,6 +50,38 @@ UART communication is utelized in two scenarios:
 
 
 ## Thrusters, gyroscope and accelerometer
+The system is designed around three key concepts commonly used in robotics, aerospace, and motion control systems: thrusters, gyroscopes, and accelerometers.
+
+### Thrusters
+Thrusters are actuators that generate force or torque to change the position or orientation of a vehicle. In this project, physical rocket thrusters are represented by stepper motors, which can be commanded to move to a position, rotate continuously at a given velocity, or stop. By controlling the motors independently, the system can simulate attitude and motion control similar to that used in satellites or spacecraft.
+
+### Gyroscope
+The MPU6500 gyroscope measures angular velocity around the three axes:
+
+- GX – rotation around the X-axis (roll rate)
+- GY – rotation around the Y-axis (pitch rate)
+- GZ – rotation around the Z-axis (yaw rate)
+
+The firmware continuously reads the gyroscope and stores both current and peak rotational rates. These measurements provide information about how quickly the system is rotating and are useful for stability monitoring and control algorithms.
+
+### Accelerometer
+The MPU6500 accelerometer measures acceleration along the X, Y, and Z axes. Using the measured acceleration components, the firmware calculates:
+
+- Pitch angle
+- Roll angle
+- Dynamic acceleration (Dynamic G)
+
+Pitch and roll are estimated from the gravity vector when the device is stationary or moving slowly. The magnitude of dynamic acceleration is also used to detect motion events ("pushes") and track the highest acceleration experienced by the system.
+
+### Sensor Monitoring
+The firmware maintains both real-time and historical sensor data, including:
+
+- Current pitch and roll angles
+- Peak pitch and roll values
+- Current gyroscope rates (GX, GY, GZ)
+- Peak gyroscope rates
+- Maximum dynamic acceleration
+- Motion event counter (pushCount)
 
 
 ## Over the air updates
