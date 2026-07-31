@@ -42,7 +42,13 @@ typedef enum
     CMD_SET_MOVE_TO = 3,
     CMD_SET_MOVE_BY = 4,
     CMD_POSITION_RESPONSE = 5,
-    CMD_ACK_POSITION = 6
+    CMD_ACK_POSITION = 6,
+
+    CMD_SET_SPM = 7,
+    CMD_GET_SPM = 8,
+    CMD_SPM_RESPONSE = 9,
+    CMD_ACK_SPM = 10
+
 } command_t;
 
 //Struktura odpowiedzi
@@ -50,11 +56,27 @@ typedef struct
 {
     uint32_t id;
     uint8_t cmd;
+
     int32_t x;
     int32_t y;
+
+    float roll;
+    float pitch;
+    float yaw;
+
+    float theta1_actual;
+    float theta2_actual;
+    float theta3_actual;
+
+    float theta1_target;
+    float theta2_target;
+    float theta3_target;
+
 } message_t;
 
-
+float current_roll = 0.0f;
+float current_pitch = 0.0f;
+float current_yaw = 0.0f;
 
 //------------------------------------ ESP-NOW Sender ------------------------------------------------
 static const char *TAG_SENDER = "SENDER";
@@ -165,6 +187,70 @@ static void recv_cb(
             printf("Wychylenie otrzymane: X=%" PRId32 " Y=%" PRId32 "\n", msg.x, msg.y);
             esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
             motor_send_command(MOVE_BY, msg.x, msg.y);
+            break;
+        }
+
+        case CMD_SET_SPM:{
+            current_roll = msg.roll;
+            current_pitch = msg.pitch;
+            current_yaw = msg.yaw;
+
+            ESP_LOGI(
+                TAG_RECEIVER,
+                "SET_SPM R=%.2f P=%.2f Y=%.2f",
+                msg.roll,
+                msg.pitch,
+                msg.yaw);
+
+            bool result =
+                spm_motors_move_rpy(
+                    msg.roll,
+                    msg.pitch,
+                    msg.yaw,
+                    0.5f);
+
+            message_t response =
+            {
+                .id = msg.id,
+                .cmd = CMD_ACK_SPM
+            };
+
+            response.x = result ? 1 : 0;
+
+            esp_now_send(
+                info->src_addr,
+                (uint8_t *)&response,
+                sizeof(response));
+
+            break;
+        }
+
+        case CMD_GET_SPM:{
+            message_t response =
+            {
+                .id = msg.id,
+                .cmd = CMD_SPM_RESPONSE,
+
+                .roll = current_roll,
+                .pitch = current_pitch,
+                .yaw = current_yaw
+            };
+
+            spm_motors_get_actual_angles(
+                &response.theta1_actual,
+                &response.theta2_actual,
+                &response.theta3_actual);
+
+            spm_motors_get_target_angles(
+                &response.theta1_target,
+                &response.theta2_target,
+                &response.theta3_target);
+
+            esp_now_send(
+                info->src_addr,
+                (uint8_t *)&response,
+                sizeof(response));
+
             break;
         }
     }
