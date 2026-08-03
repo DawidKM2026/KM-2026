@@ -13,7 +13,7 @@
 #include "driver/gpio.h"
 #include "gpio_config.h"
 #include "stepper_motor.h"
-
+#include "spm_motors.h"
 
 
 // Koordynaty

@@ -1,0 +1,88 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "nvs_flash.h"
+#include "esp_err.h"
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
+
+#include "config_wifi.h"
+#include "esp_now_comm.h"
+#include "over_the_air_updates.h"
+#include "gpio_config.h"
+#include "stepper_motor.h"
+#include "encoders.h"
+
+#include "esp_rom_sys.h"
+
+typedef enum
+{
+    SYSTEM_BOOT = 0,
+    SYSTEM_HOMING,
+    SYSTEM_READY,
+    SYSTEM_RUNNING,
+    SYSTEM_ERROR,
+    SYSTEM_EMERGENCY_STOP
+} system_state_t;
+
+static system_state_t system_state = SYSTEM_BOOT;
+
+void app_main(void)
+{
+    // Inicjalizacja pamieci długotrwałej
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
+        ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    
+    //Inicjalizacja podłączenia do AP
+    wifi_init_sta();
+
+    
+    //Start strony WWW do aktualizacji przez przeglądarkę
+    start_webserver();
+
+    //Inicjalizacja  ESP-NOW do przesyłania iformacji o położeniu do panelu operatorskiego
+    espnow_init();
+
+    //Inicjalizacja wejść/wyjść
+    init_gpio();
+
+    //Inicjalizacja enkoderów
+    motor_encoder_init(ENCODER_X_1);
+    motor_encoder_init(ENCODER_X_2);
+    motor_encoder_init(ENCODER_Y);
+
+    //Inicjalizacja silników krokwych
+    init_stepper_motor_timers();
+
+    //Bazowanie
+    /* 
+    bool homing_done = motor_homing();
+    printf("Bazowanie zakonczone: %d\n", homing_done); */
+    /* gpio_set_level(EN_Y_PIN,0);
+    gpio_set_level(DIR_Y_PIN,1); */
+    while (1)
+    {
+        //Obsługa przycisku na ESP 32 S3 PICO
+        motor_button_on_off();
+        /* gpio_set_level(STEP_Y_PIN, 1);
+        esp_rom_delay_us(500); */
+/* 
+        gpio_set_level(STEP_Y_PIN, 0);
+        esp_rom_delay_us(500); */
+
+        //Zatrzymanie grzybkiem
+ /*        check_emergency_stop(); */
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}

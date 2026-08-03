@@ -122,3 +122,10 @@ void update_current_position(void);
 
 //Obsługa przycisku silników
 void motor_button_on_off(void);
+
+//Zatrzymanie grzybkiem
+void motor_emergency_stop(void);
+
+//Sprawdzenie czy grzybek jest wciśnięty
+bool is_emergency_stop_pressed(void);
+

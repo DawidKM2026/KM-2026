@@ -1,23 +1,33 @@
 idf_component_register(
-    SRCS 
-    "Move_XY/encoders.c"
-    "main_app.c" 
-    "ESP_NOW/esp_now_comm.c" 
-    "OTA/config_wifi.c" 
-    "OTA/over_the_air_updates.c" 
-    "GPIO/gpio_config.c" 
-    "Move_XY/stepper_motor.c" 
-    "Move_XY/bresenham.c"
-    
-    
-    INCLUDE_DIRS
-            "."
-            "Move_XY"
-            "SPM"
-            "ESP_NOW"
-            "OTA"
-            "GPIO"
+    SRCS
+        "main_app.c"
 
+        "STATE/system_state.c"
+        "BOOT/system_boot.c"
+
+        "ESP_NOW/esp_now_comm.c"
+
+        "OTA/config_wifi.c"
+        "OTA/over_the_air_updates.c"
+
+        "GPIO/gpio_config.c"
+
+        "Move_XY/encoders.c"
+        "Move_XY/stepper_motor.c"
+        "Move_XY/bresenham.c"
+
+        "SPM/spm_motors.c"
+        "SPM/spm_ik.c"
+
+    INCLUDE_DIRS
+        "."
+        "STATE"
+        "BOOT"
+        "ESP_NOW"
+        "OTA"
+        "GPIO"
+        "Move_XY"
+        "SPM"
 
     EMBED_TXTFILES
         "OTA/index.html"
