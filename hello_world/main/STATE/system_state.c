@@ -7,8 +7,13 @@
 
 #include "stepper_motor.h"
 #include "gpio_config.h"
+#include "spm_motors.h"
 
 static system_state_t current_state = SYSTEM_BOOT;
+static volatile bool command_pending =
+    false;
+
+static system_command_t pending_command;
 
 /* -------------------------------------------------------------------------- */
 /* PRIVATE FUNCTIONS */
@@ -20,6 +25,26 @@ static void system_ready_handler(void);
 static void system_running_handler(void);
 static void system_error_handler(void);
 static void system_estop_handler(void);
+static bool error_reset(void);
+
+/* -------------------------------------------------------------------------- */
+/* COMMAND HANDLING */
+/* -------------------------------------------------------------------------- */
+
+bool system_set_command(
+    const system_command_t *cmd)
+{
+    if(current_state != SYSTEM_READY)
+    {
+        return false;
+    }
+
+    pending_command = *cmd;
+
+    command_pending = true;
+
+    return true;
+}
 
 /* -------------------------------------------------------------------------- */
 /* STATE ACCESS */
@@ -70,62 +95,85 @@ static void system_ready_handler(void)
 {
     motor_button_on_off();
 
-    /*
-     * Tutaj później:
-     * - komendy ESP-NOW
-     * - komendy WWW
-     * - start programu ruchu
-     */
-
-    /*
-    if(start_motion_request())
+    if(command_pending)
     {
-        system_set_state(SYSTEM_RUNNING);
+        system_set_state(
+            SYSTEM_RUNNING);
     }
-    */
 }
 
 /* -------------------------------------------------------------------------- */
 
 static void system_running_handler(void)
 {
-    /*
-     * Obsługa ruchu.
-     */
+    bool success = false;
 
-    /*
-    if(motion_finished())
+    switch(pending_command.action)
     {
-        system_set_state(SYSTEM_READY);
-    }
-    */
+        case ACTION_MOVE_TO:
 
-    /*
-    if(motion_error())
-    {
-        system_set_state(SYSTEM_ERROR);
+            success =
+                (motor_move_to(
+                    pending_command.x,
+                    pending_command.y)
+                == ESP_OK);
+
+            break;
+
+        case ACTION_MOVE_BY:
+
+            success =
+                (motor_move_by(
+                    pending_command.x,
+                    pending_command.y)
+                == ESP_OK);
+
+            break;
+
+        case ACTION_SPM:
+
+            success =
+                spm_motors_move_rpy(
+                    pending_command.roll,
+                    pending_command.pitch,
+                    pending_command.yaw,
+                    0.5f);
+
+            break;
+
+        default:
+
+            success = false;
+
+            break;
     }
-    */
+    
+    command_pending = false;
+
+    pending_command.action =
+        ACTION_NONE;
+
+    if(success)
+    {
+        system_set_state(
+            SYSTEM_READY);
+    }
+    else
+    {
+        system_set_state(
+            SYSTEM_ERROR);
+    }
 }
 
 /* -------------------------------------------------------------------------- */
 
 static void system_error_handler(void)
 {
-    /*
-     * Obsługa błędu.
-     */
-
-    /*
-    stepper_stop_all();
-    */
-
-    /*
     if(error_reset())
     {
-        system_set_state(SYSTEM_READY);
+        system_set_state(
+            SYSTEM_READY);
     }
-    */
 }
 
 /* -------------------------------------------------------------------------- */
@@ -190,4 +238,9 @@ void system_state_task(void *pvParameters)
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+}
+
+static bool error_reset(void)
+{
+    return true;
 }

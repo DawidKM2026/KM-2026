@@ -15,6 +15,8 @@
 #include "stepper_motor.h"
 #include "spm_motors.h"
 
+#include "system_boot.h"
+#include "system_state.h"
 
 // Koordynaty
 int32_t target_x;
@@ -172,7 +174,14 @@ static void recv_cb(
             
             esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
             printf("Pozycja otrzymana do osiągnięcia: X=%" PRId32 " Y=%" PRId32 "\n", msg.x, msg.y);
-            motor_send_command(MOVE_TO, msg.x, msg.y);
+            system_command_t cmd =
+            {
+                .action = ACTION_MOVE_TO,
+                .x = msg.x,
+                .y = msg.y
+            };
+
+            system_set_command(&cmd);
             break;
         }
 
@@ -186,11 +195,19 @@ static void recv_cb(
                 };
             printf("Wychylenie otrzymane: X=%" PRId32 " Y=%" PRId32 "\n", msg.x, msg.y);
             esp_now_send(info->src_addr, (uint8_t *)&response, sizeof(response));
-            motor_send_command(MOVE_BY, msg.x, msg.y);
+            system_command_t cmd =
+            {
+                .action = ACTION_MOVE_BY,
+                .x = msg.x,
+                .y = msg.y
+            };
+
+            system_set_command(&cmd);
             break;
         }
 
-        case CMD_SET_SPM:{
+        case CMD_SET_SPM:
+        {
             current_roll = msg.roll;
             current_pitch = msg.pitch;
             current_yaw = msg.yaw;
@@ -202,12 +219,17 @@ static void recv_cb(
                 msg.pitch,
                 msg.yaw);
 
+            system_command_t cmd =
+            {
+                .action = ACTION_SPM,
+
+                .roll  = msg.roll,
+                .pitch = msg.pitch,
+                .yaw   = msg.yaw
+            };
+
             bool result =
-                spm_motors_move_rpy(
-                    msg.roll,
-                    msg.pitch,
-                    msg.yaw,
-                    0.5f);
+                system_set_command(&cmd);
 
             message_t response =
             {
