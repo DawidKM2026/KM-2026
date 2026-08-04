@@ -15,6 +15,7 @@ nav:
   - Hardware: hardware.md
   - Software: software.md
   - 3D Modeling: 3d_modeling.md
+  - State Space: state_space.md
   - Licenses: licenses.md
 
 markdown_extensions:
