@@ -14,10 +14,20 @@ bool spm_motors_move_steps(
 
 void spm_motors_stop(void);
 
+// spm_motors.h
+
 bool spm_motors_move_rpy(
     float roll_deg,
     float pitch_deg,
     float yaw_deg,
     float speed_rps);
+
+void spm_motors_get_actual_angles(float *roll,
+    float *pitch,
+    float *yaw);
+
+void spm_motors_get_target_angles(float *roll,
+   float *pitch,
+   float *yaw);
 
 #endif

@@ -27,6 +27,14 @@ Access point
 ## Arduino Nano
 The Arduino Nano controls the vessel thrusters. It receives commands from the Vessel ESP32 over UART and converts them into the control signals required by the individual thrusters.
 
+![Anano connections](images/anano_connections.png)
+
+The 5 V comes from the voltage converter.
+
+*The specific IDs are derived from the voltage measured when the application program runs on the microcontroller; while this level may fluctuate depending on the circuit's load, the IDs were assigned reasonably accurately at the time of implementation.
+
+When the microcontroller supports an MPU module (only when its ID is equal to one), it simultaneously has fewer pins available for driving stepper motors because the MPU communicates via SPI, which requires more wiring; however, the advantage is rapid data transmission and processing.
+
 ## Surge and sway motors
 Surge and sway motion is provided by three identical stepper motors:
 

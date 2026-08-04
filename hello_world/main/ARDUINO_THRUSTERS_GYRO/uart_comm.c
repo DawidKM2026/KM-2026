@@ -6,7 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define UART_RESPONSE_TIMEOUT_MS 500
+#define UART_RESPONSE_TIMEOUT_MS 100
 
 static uart_port_t uart_num = UART_NUM_1;
 

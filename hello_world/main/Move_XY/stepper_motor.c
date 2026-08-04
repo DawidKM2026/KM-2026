@@ -1217,10 +1217,8 @@ void motor_emergency_stop(void)
 
     printf("EMERGENCY STOP!\n");
 }
-void check_emergency_stop(void)
+
+bool is_emergency_stop_pressed(void)
 {
-    if (gpio_get_level(EMERGENCY_STOP_PIN) == 0)
-    {
-        motor_emergency_stop();
-    }
+    return (gpio_get_level(EMERGENCY_STOP_PIN) == 0);
 }
