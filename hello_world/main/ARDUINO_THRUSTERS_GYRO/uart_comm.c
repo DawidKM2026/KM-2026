@@ -9,6 +9,7 @@
 #define UART_RESPONSE_TIMEOUT_MS 100
 
 static uart_port_t uart_num = UART_NUM_1;
+static bool telemetryCycleActive = false;
 
 typedef enum
 {
@@ -40,6 +41,13 @@ typedef struct
     int16_t gzPeak;
 
 } TelemetryData;
+
+static TelemetryData telemetryData;
+
+const TelemetryData *uart_get_telemetry(void)
+{
+    return &telemetryData;
+}
 
 static uint8_t calc_crc(
     const UARTFrame *f)
@@ -79,9 +87,10 @@ static void check_timeout(void)
     TickType_t now = xTaskGetTickCount();
 
     if ((now - txTimestamp) >
-        pdMS_TO_TICKS(UART_RESPONSE_TIMEOUT_MS))
+    pdMS_TO_TICKS(UART_RESPONSE_TIMEOUT_MS))
     {
         txState = UART_TX_IDLE;
+        telemetryCycleActive = false;
     }
 }
 
@@ -222,58 +231,118 @@ bool uart_receive_frame(UARTFrame *frame)
         return false;
     }
 
-    if (uart_receive_frame(&frame))
-{
-    switch (frame.command)
-    {
-        case CMD_LIVE_MPU:
-            // obsługa odpowiedzi LIVE_MPU
-            TelemetryData.pitchCurrent = frame->data1;
-            TelemetryData.rollCurrent = frame->data2;
-            break;
-
-        case CMD_HIST_MPU:
-            // obsługa odpowiedzi HIST_MPU
-            TelemetryData.pitchPeak = frame->data1;
-            TelemetryData.rollPeak = frame->data2;
-            TelemetryData.maxDynamicG = frame->data3;
-            TelemetryData.pushCount = frame->data4;
-            break;
-
-        case CMD_LIVE_GYRO:
-            // obsługa odpowiedzi LIVE_GYRO
-            TelemetryData.gxCurrent = frame->data1;
-            TelemetryData.gyCurrent = frame->data2;
-            TelemetryData.gzCurrent = frame->data3;
-            break;
-
-        case CMD_HIST_GYRO:
-            // obsługa odpowiedzi HIST_GYRO
-            TelemetryData.gxPeak = frame->data1;
-            TelemetryData.gyPeak = frame->data2;
-            TelemetryData.gzPeak = frame->data3;
-            break;
-
-        case CMD_PUSH_INFO:
-            // obsługa odpowiedzi PUSH_INFO
-            TelemetryData.maxDynamicG = frame->data1;
-            TelemetryData.pushCount = frame->data2;
-            break;
-
-        default:
-            // nieznana komenda
-            break;
-    }
-}
-   
-    /*
-     * Odpowiedź tylko dla unicast.
-     * Broadcast nie powinien nic odsyłać.
-     */
+    /* odpowiedź przyszła, można odblokować nadawanie */
     if (frame->boardID != 0)
     {
         uart_comm_response_received();
     }
+  
+    switch (frame->command)
+    {
+        case CMD_LIVE_MPU:
+
+            telemetryData.pitchCurrent = frame->data1;
+            telemetryData.rollCurrent  = frame->data2;
+
+            if(!uart_send_frame(
+                1,
+                CMD_HIST_MPU,
+                0, 0, 0, 0, 0))
+            {
+                telemetryCycleActive = false;
+            }
+
+            break;
+
+        case CMD_HIST_MPU:
+
+            telemetryData.pitchPeak  = frame->data1;
+            telemetryData.rollPeak   = frame->data2;
+            telemetryData.maxDynamicG = frame->data3;
+            telemetryData.pushCount   = frame->data4;
+
+            if(!uart_send_frame(
+                1,
+                CMD_LIVE_GYRO,
+                0, 0, 0, 0, 0))
+            {
+                telemetryCycleActive = false;
+            }
+
+            break;
+
+        case CMD_LIVE_GYRO:
+
+            telemetryData.gxCurrent = frame->data1;
+            telemetryData.gyCurrent = frame->data2;
+            telemetryData.gzCurrent = frame->data3;
+
+            if(!uart_send_frame(
+                1,
+                CMD_HIST_GYRO,
+                0, 0, 0, 0, 0))
+            {
+                telemetryCycleActive = false;
+            }
+
+            break;
+
+        case CMD_HIST_GYRO:
+
+            telemetryData.gxPeak = frame->data1;
+            telemetryData.gyPeak = frame->data2;
+            telemetryData.gzPeak = frame->data3;
+
+            if(!uart_send_frame(
+                1,
+                CMD_PUSH_INFO,
+                0, 0, 0, 0, 0))
+            {
+                telemetryCycleActive = false;
+            }
+
+            break;
+
+        case CMD_PUSH_INFO:
+
+            telemetryData.maxDynamicG = frame->data1;
+            telemetryData.pushCount   = frame->data2;
+
+            /* koniec cyklu telemetrycznego */
+            telemetryCycleActive = false;
+
+            break;
+
+        default:
+            break;
+    }
 
     return true;
+}
+
+
+static void telemetry_task(void *arg)
+{
+    TickType_t lastWakeTime = xTaskGetTickCount();
+
+    while (1)
+    {
+        if (uart_comm_ready() &&
+            !telemetryCycleActive)
+        {
+            telemetryCycleActive = true;
+
+            if (!uart_send_frame(
+                1,
+                CMD_LIVE_MPU,
+                0, 0, 0, 0, 0))
+            {
+                telemetryCycleActive = false;
+            }
+        }
+
+        vTaskDelayUntil(
+            &lastWakeTime,
+            pdMS_TO_TICKS(400));
+    }
 }
