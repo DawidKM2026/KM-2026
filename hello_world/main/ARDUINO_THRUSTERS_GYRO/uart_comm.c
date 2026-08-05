@@ -21,6 +21,26 @@ static volatile uart_tx_state_t txState = UART_TX_IDLE;
 
 static TickType_t txTimestamp = 0;
 
+typedef struct
+{
+    int16_t pitchCurrent;
+    int16_t rollCurrent;
+
+    int16_t pitchPeak;
+    int16_t rollPeak;
+    int16_t maxDynamicG;
+    int16_t pushCount;
+
+    int16_t gxCurrent;
+    int16_t gyCurrent;
+    int16_t gzCurrent;
+
+    int16_t gxPeak;
+    int16_t gyPeak;
+    int16_t gzPeak;
+
+} TelemetryData;
+
 static uint8_t calc_crc(
     const UARTFrame *f)
 {
@@ -202,6 +222,50 @@ bool uart_receive_frame(UARTFrame *frame)
         return false;
     }
 
+    if (uart_receive_frame(&frame))
+{
+    switch (frame.command)
+    {
+        case CMD_LIVE_MPU:
+            // obsługa odpowiedzi LIVE_MPU
+            TelemetryData.pitchCurrent = frame->data1;
+            TelemetryData.rollCurrent = frame->data2;
+            break;
+
+        case CMD_HIST_MPU:
+            // obsługa odpowiedzi HIST_MPU
+            TelemetryData.pitchPeak = frame->data1;
+            TelemetryData.rollPeak = frame->data2;
+            TelemetryData.maxDynamicG = frame->data3;
+            TelemetryData.pushCount = frame->data4;
+            break;
+
+        case CMD_LIVE_GYRO:
+            // obsługa odpowiedzi LIVE_GYRO
+            TelemetryData.gxCurrent = frame->data1;
+            TelemetryData.gyCurrent = frame->data2;
+            TelemetryData.gzCurrent = frame->data3;
+            break;
+
+        case CMD_HIST_GYRO:
+            // obsługa odpowiedzi HIST_GYRO
+            TelemetryData.gxPeak = frame->data1;
+            TelemetryData.gyPeak = frame->data2;
+            TelemetryData.gzPeak = frame->data3;
+            break;
+
+        case CMD_PUSH_INFO:
+            // obsługa odpowiedzi PUSH_INFO
+            TelemetryData.maxDynamicG = frame->data1;
+            TelemetryData.pushCount = frame->data2;
+            break;
+
+        default:
+            // nieznana komenda
+            break;
+    }
+}
+   
     /*
      * Odpowiedź tylko dla unicast.
      * Broadcast nie powinien nic odsyłać.
