@@ -9,6 +9,8 @@
 #define UART_RESPONSE_TIMEOUT_MS 100
 
 static uart_port_t uart_num = UART_NUM_1;
+
+static TelemetryData telemetryData;
 static bool telemetryCycleActive = false;
 
 typedef enum
@@ -22,27 +24,7 @@ static volatile uart_tx_state_t txState = UART_TX_IDLE;
 
 static TickType_t txTimestamp = 0;
 
-typedef struct
-{
-    int16_t pitchCurrent;
-    int16_t rollCurrent;
 
-    int16_t pitchPeak;
-    int16_t rollPeak;
-    int16_t maxDynamicG;
-    int16_t pushCount;
-
-    int16_t gxCurrent;
-    int16_t gyCurrent;
-    int16_t gzCurrent;
-
-    int16_t gxPeak;
-    int16_t gyPeak;
-    int16_t gzPeak;
-
-} TelemetryData;
-
-static TelemetryData telemetryData;
 
 const TelemetryData *uart_get_telemetry(void)
 {

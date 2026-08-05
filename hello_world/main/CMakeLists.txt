@@ -1,7 +1,6 @@
 idf_component_register(
     SRCS
         "main_app.c"
-
         "STATE/system_state.c"
         "BOOT/system_boot.c"
 
@@ -19,6 +18,8 @@ idf_component_register(
         "SPM/spm_motors.c"
         "SPM/spm_ik.c"
 
+        "ARDUINO_THRUSTERS_GYRO/uart_comm.c"
+        
     INCLUDE_DIRS
         "."
         "STATE"
@@ -28,6 +29,7 @@ idf_component_register(
         "GPIO"
         "Move_XY"
         "SPM"
+        "ARDUINO_THRUSTERS_GYRO"
 
     EMBED_TXTFILES
         "OTA/index.html"

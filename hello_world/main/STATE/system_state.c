@@ -8,6 +8,8 @@
 #include "stepper_motor.h"
 #include "gpio_config.h"
 #include "spm_motors.h"
+#include "uart_comm.h"
+
 
 static system_state_t current_state = SYSTEM_BOOT;
 static volatile bool command_pending =
@@ -106,6 +108,9 @@ static void system_ready_handler(void)
 
 static void system_running_handler(void)
 {
+
+    const TelemetryData *t = uart_get_telemetry();
+
     bool success = false;
 
     switch(pending_command.action)
