@@ -219,3 +219,22 @@ The main body constituting the outer shell of the land mockup, stripped of cosme
 | Part | Qty | CAD File | Print File |
 | :--- | :--- | :--- | :--- |
 | **Model files:** | 1 pc | [Download `.f3d`](3d_modeling_files/10_sar_brage_hull/cad/sar_brage.f3d) \| [Download `.step`](3d_modeling_files/10_sar_brage_hull/cad/sar_brage.step) | [Download `.3mf`](3d_modeling_files/10_sar_brage_hull/cad/sar_brage.3mf)|
+
+## 11. V-Slot 2020 Corner Bracket `[CAD + 3D Print]`
+
+A 90-degree corner connector designed for joining **V-Slot 2020 aluminum profiles**. The printed brackets were used to reinforce the frame because the previously installed metal corner brackets tended to rotate under load, causing the structure to wobble. The printed bracket provides a larger contact area against the profiles and helps maintain the correct angle between them.
+
+!!! info "Model Origin and License (CC0 1.0 — Public Domain)"
+    This element is based on the original project **"Vslot 20x20 corner bracket"** by **Guy St (@GuySt_280873)**, downloaded from [Printables](https://www.printables.com/model/638405-vslot-20x20-corner-bracket){ target="_blank" rel="noopener noreferrer" }.
+
+    The original model was released under the [CC0 1.0 Universal — Public Domain Dedication](https://creativecommons.org/publicdomain/zero/1.0/) The CC0 dedication permits the model to be copied, modified, distributed, and used for both private and commercial purposes without requiring permission. Attribution is not legally required; however, the original author and source are included here as a matter of good documentation practice.
+
+=== "CAD Visualization"
+    ![CAD V-Slot 2020 corner bracket](3d_modeling_files/11_vslot_corner_bracket/img/vslot_corner_bracket_cad.png){: style="height: 300px; display: block; margin: 0 auto;" }
+
+=== "Real Print"
+    ![Printed V-Slot 2020 corner bracket](3d_modeling_files/11_vslot_corner_bracket/img/vslot_corner_bracket_real.jpg){: style="height: 300px; display: block; margin: 0 auto;" }
+
+| Part | Qty | CAD File |
+| :--- | :--- | :--- |
+| **Model files:** | 4 pc | [Download `.step`](3d_modeling_files/11_vslot_corner_bracket/cad/45Bracket_.step)

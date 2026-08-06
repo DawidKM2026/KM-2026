@@ -54,8 +54,16 @@ All encoders are the same model: **E2-200-250-NE-H-D-B**.
 ### Instalation:
 
 ![Hardware schematic](images/hardware_schematics.png)
-
-
+ <object
+    data="/images/KM2026.pdf"
+    type="application/pdf"
+    width="100%"
+    height="800px">
+    <p>
+        Nie można wyświetlić PDF.
+    </p>
+</object>
+Kicad project files [Download `.zip`](/hello_world/DP_Platform/docs/download/KM2026.zip)
 
 ## Heading, pitch and roll motors
 Heading, pitch, and roll motion is provided by three identical [stepper motors](https://allegro.pl/produkt/jk42hs34-0404-silnik-krokowy-nema17-12v-2-6kg-cm-ae85d7b0-26fc-4650-ab60-a74a4b44aa1c?offerId=18301714312).
