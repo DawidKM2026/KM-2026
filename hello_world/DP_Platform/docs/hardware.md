@@ -28,6 +28,15 @@ Access point
 The Arduino Nano controls the vessel thrusters. It receives commands from the Vessel ESP32 over UART and converts them into the control signals required by the individual thrusters.
 
 ![Anano connections](images/anano_connections.png)
+ <object
+    data="/images/KM2026_2.pdf"
+    type="application/pdf"
+    width="100%"
+    height="800px">
+    <p>
+        Nie można wyświetlić PDF.
+    </p>
+</object>
 
 The 5 V comes from the voltage converter.
 
@@ -55,7 +64,7 @@ All encoders are the same model: **E2-200-250-NE-H-D-B**.
 
 ![Hardware schematic](images/hardware_schematics.png)
  <object
-    data="/images/KM2026.pdf"
+    data="/images/KM2026_1.pdf"
     type="application/pdf"
     width="100%"
     height="800px">
@@ -63,7 +72,7 @@ All encoders are the same model: **E2-200-250-NE-H-D-B**.
         Nie można wyświetlić PDF.
     </p>
 </object>
-Kicad project files [Download `.zip`](download/KM2026.zip)
+
 
 ## Heading, pitch and roll motors
 Heading, pitch, and roll motion is provided by three identical [stepper motors](https://allegro.pl/produkt/jk42hs34-0404-silnik-krokowy-nema17-12v-2-6kg-cm-ae85d7b0-26fc-4650-ab60-a74a4b44aa1c?offerId=18301714312).
@@ -82,3 +91,20 @@ The vessel is equipped with five thrusters:
  - four azimuth thrusters.
  
  The thrusters are controlled by the Arduino Nano, which receives commands from the Vessel ESP32 through a UART connection.
+
+## KiCad Schematic and Project
+
+!!! info "Project Documentation"
+    This section contains the complete hardware design package, including the full schematic diagram and all source files required to open, review, and modify the project in KiCad.
+
+<object
+    data="/images/KM2026.pdf"
+    type="application/pdf"
+    width="100%"
+    height="800px">
+    <p>
+        The PDF preview cannot be displayed in your browser.
+    </p>
+</object>
+
+**KiCad Project Files:** [Download `.zip`](download/KM2026.zip)
