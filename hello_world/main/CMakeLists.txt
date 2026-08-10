@@ -12,5 +12,6 @@ idf_component_register(
         esp_netif
         nvs_flash
         esp_wifi
+        esp_driver_uart
         log
 )
