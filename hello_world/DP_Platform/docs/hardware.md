@@ -44,6 +44,9 @@ The 5 V comes from the voltage converter.
 
 When the microcontroller supports an MPU module (only when its ID is equal to one), it simultaneously has fewer pins available for driving stepper motors because the MPU communicates via SPI, which requires more wiring; however, the advantage is rapid data transmission and processing.
 
+!!! info "About TX connection"
+    A 220-ohm resistor comes out of the TX aNano.
+
 ## Surge and sway motors
 Surge and sway motion is provided by three identical stepper motors:
 

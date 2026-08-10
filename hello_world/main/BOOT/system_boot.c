@@ -11,6 +11,7 @@
 #include "gpio_config.h"
 #include "stepper_motor.h"
 #include "encoders.h"
+#include "uart_comm.h"
 
 static const char *TAG = "SYSTEM_BOOT";
 
@@ -66,5 +67,7 @@ void system_boot(void)
 
     communication_init();
 
+    uart_comm_init(UART_1, UART_2, 115200);
+    
     ESP_LOGI(TAG, "System boot complete");
 }
