@@ -3,7 +3,8 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "C:/esp/v6.0.2/esp-idf/components/freertos/FreeRTOS-Kernel-SMP/include"
             ],
             "defines": [
                 "_DEBUG",
