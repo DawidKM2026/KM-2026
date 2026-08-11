@@ -83,7 +83,7 @@ The information flow is ilustrated in the following diagram:
 
 ### Adding new motion sources
 
-When adding new motion sources, it is recommended to use the existing MotionCommand interface, which describes the desired motion of the vessel in 3 DoF. The MotionCommand interface is defined in the `src/backend/interfaces.ts` file. The interface is as follows:
+When adding new motion sources, it is recommended to use the existing MotionCommand interface, which describes the desired motion of the vessel in 3 DoF. The MotionCommand interface is defined in the `src\frontend\models\MotionCommand.ts` file. The interface is as follows:
 ```ts
 export interface MotionCommand {
     surge: number;
