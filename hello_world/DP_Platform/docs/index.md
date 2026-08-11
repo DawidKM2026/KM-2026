@@ -4,12 +4,12 @@ This project provides a platform for controlling and simulating vessel motion in
 
 The operator can:
 
- - configure the platform workspace dimensions;
- - define target coordinates for the vessel to reach and maintain;
- - manually control vessel movements using a joystick;
- - simulate vessel motion caused by waves;
- - monitor the current vessel position;
- - monitor thruster positions and load conditions.
+ - [x] configure the platform workspace dimensions;
+ - [ ] define target coordinates for the vessel to reach and maintain;
+ - [x] manually control vessel movements using a joystick;
+ - [ ] simulate vessel motion caused by waves;
+ - [x] monitor the current vessel position;
+ - [x] monitor thruster positions and load conditions.
 
 ## Surge and sway
 Surge and sway motion are achieved using two electric motors for the X-axis and one electric motor for the Y-axis. Each motor is equipped with an encoder to ensure precise positioning and accurate movement to the desired coordinates.
