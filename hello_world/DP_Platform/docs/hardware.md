@@ -16,6 +16,7 @@ The Vessel ESP32-S3 Pico is the main controller responsible for controlling the 
 - **GPIO 36** – enable output for the spherical parallel manipulator A4988 stepper motor drivers;
 - **GPIO 41 and 42** – UART communication with the Arduino Nano.
 
+**gpio_config.h/c**: Centralizes all GPIO pin definitions and initialization for the ESP32-S3 microcontroller. The header file maps hardware pins to logical constants for XY-axis stepper motors (step/direction/enable), SPM pitch-roll-heading motors, encoder feedback, limit switches, user input buttons, emergency stop, and UART communication with the Arduino Nano. The implementation file (`gpio_config.c`) calls the GPIO driver to set pin directions (input/output) and configures internal pull-up resistors on all input pins, called once at system startup.
 
 ## Control panel ESP 32
 Acquisition of data from server

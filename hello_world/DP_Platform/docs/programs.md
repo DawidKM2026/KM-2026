@@ -1,7 +1,7 @@
 # Description and download of programs used during the project design process
 
 ## Arduino_soft
-System Overview: Multi-module stepper motor controller with optional IMU (MPU6500) on board ID 1. Each board gets a unique ID via ADC voltage divider, determining motor count (3 motors for ID 1, 4 for others) and whether MPU6500 is enabled.
+System Overview: Multi-module stepper motor controller with optional IMU (MPU6500) on board ID 1. Each board gets a unique ID via ADC voltage divider, determining motor count (3 motors for ID 1, 4 for others) and whether MPU6500 is enabled. See [Software](software.md#thrusters-gyroscope-and-accelerometer) and [Hardware](hardware.md#arduino-nano) implementations.
 
 ### main.cpp - Boot & Main Loop
 
@@ -105,7 +105,7 @@ Python GUI for controlling stepper motors via UART. Tkinter-based with COM port 
     Check whether aNano responds after a frame is sent from the application.
 
 ## SPMapp
-
+See [Heading, pitch and roll motors](hardware.md#heading-pitch-and-roll-motors)
 ### spm_manipulator.py
 
 - Tkinter GUI for a coaxial SPM inverse kinematics demo.
@@ -146,7 +146,7 @@ Python GUI for controlling stepper motors via UART. Tkinter-based with COM port 
     The HMI app (uart_spm.py) allows for testing a separate manipulator module in the future, prior to its integration into the main system.
 
 ## Esp_UART_bridge
-This is an ESP32-based UART bridge plus a Python GUI for communicating with an “aNano” motion controller.
+This is an ESP32-based UART bridge plus a Python GUI for communicating with an “aNano” motion controller. See [Arduino_soft](programs.md#arduino_soft).
 
 !!! info "Usability"
     This ESP32 bridge program allows for the independent control of stepper motors in the aNano system via the downloadable *Esp_UART_bridge* application (which includes *uart_gui*). Unlike the program found in the *Arduino_soft* file — which requires an Arduino to be connected for control—this setup connects directly to the ESP32 bridge. It is useful for testing the thruster control system in isolation prior to its full integration into the main system.
@@ -210,7 +210,10 @@ SPMapp is a software suite for developing and testing a coaxial Spherical Parall
 ### Esp_UART_bridge
 Esp_UART_bridge is an ESP32-based communication bridge that enables a PC application to communicate directly with the aNano controller. The ESP32 transparently forwards data between its USB serial interface and the external UART connected to aNano, without interpreting or modifying the protocol. Combined with the accompanying GUI, it provides independent testing of motor control, telemetry, and communication functions before full system integration.
 
-!!! info Verification Required
+## Steps to take if the aNano PC application fails
+
+!!! warning 
+    **Verification Required**
 
     - GUI sends valid frame.
     - ESP32 forwards frame correctly.
@@ -229,3 +232,4 @@ Esp_UART_bridge is an ESP32-based communication bridge that enables a PC applica
 | Arduino_soft.zip | [Download 📥](Program_down_files\Arduino_soft.zip) |
 |  SPMapp.zip | [Download 📥](Program_down_files\SPMapp.zip) |
 | Esp_UART_bridge.zip | [Download 📥](Program_down_files\Esp_UART_bridge.zip) |
+
