@@ -1,5 +1,11 @@
 # State_space
+
+
 ![State_space_image](images/System_state.png)
+
+## Overview
+
+The KM-2026 is an autonomous marine vessel control system centered around three core subsystems: (1) XY-axis motion using synchronized stepper motors with Bresenham stepping and encoder feedback for surge/sway positioning, (2) SPM (Spherical Parallel Manipulator) with three-axis inverse kinematics for precise heading/pitch/roll platform orientation, and (3) Thrusters + IMU telemetry providing real-time gyroscope/accelerometer feedback from an Arduino Nano via UART. A centralized finite state machine (BOOT → HOMING → READY → RUNNING → ERROR/E-STOP) orchestrates all motion commands and sensor integration, running every 10 ms under FreeRTOS. Communication occurs through ESP-NOW for inter-ESP32 wireless commands, WiFi for OTA firmware updates and network access, and UART for thruster/sensor polling. The system prioritizes emergency stop above all states—any time the E-STOP button is pressed, all motors halt immediately and re-homing is required before normal operation resumes.
 
 ## SYSTEM_BOOT​
 System startup state. 

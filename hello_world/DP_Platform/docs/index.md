@@ -2,6 +2,9 @@
 
 This project provides a platform for controlling and simulating vessel motion in five degrees of freedom (5 DOF). The vessel can be controlled either manually using a joystick or automatically by specifying target coordinates and orientation parameters.
 
+!!! warning "Introduction"
+    For a broader understanding of how program algorithms work using a state machine, see [State space](state_space.md).
+
 The operator can:
 
  - [x] configure the platform workspace dimensions;
